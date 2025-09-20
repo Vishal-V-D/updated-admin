@@ -111,7 +111,7 @@ export default function ExamPage() {
     setLoading(true);
     setError(null);
     try {
-      const examsPromise = fetch(`http://localhost:${API_PORT}/exams`).then(
+      const examsPromise = fetch(`https://admin-page-josaa.netlify.app/exams`).then(
         (res) => {
           if (!res.ok) throw new Error('Failed to fetch general exams');
           return res.json();
