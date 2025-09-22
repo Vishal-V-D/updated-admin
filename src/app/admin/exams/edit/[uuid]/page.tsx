@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { IconArrowLeft, IconGauge, IconEdit, IconTrash, IconPlus, IconReplace, IconGripVertical } from '@tabler/icons-react';
+import { IconArrowLeft, IconGauge, IconEdit, IconTrash, IconPlus, IconReplace, IconGripVertical, IconLoader } from '@tabler/icons-react';
 import PageContainer from '@/components/layout/page-container';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -133,29 +133,41 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
                     ))}
                   </ul>
                 )}
-                {item.type === "table" && Array.isArray(item.data) && item.data.length > 0 && (
-                  <div className="overflow-x-auto mt-4 rounded-lg border border-border">
-                    <table className="w-full text-sm text-left text-muted-foreground">
-                      <thead className="text-xs text-secondary-foreground uppercase bg-secondary">
-                        <tr>
-                          {Object.keys(item.data[0]).map((header, hIndex) => (
-                            <th key={hIndex} scope="col" className="px-6 py-3">{header}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {item.data.map((row: Record<string, any>, rIndex: number) => (
-                          <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
-                            {Object.keys(row).map((header, cIndex) => (
-                              <td key={cIndex} className="px-6 py-4">{highlightText(row[header])}</td>
+              
+                {item.type === "table" &&
+                  Array.isArray(item.content) &&
+                  item.content.length > 0 && (
+                    <div className="overflow-x-auto mt-4 rounded-lg border border-border">
+                      <table className="w-full text-sm text-left text-muted-foreground">
+                        {/* Header (first row) */}
+                        <thead className="text-xs text-secondary-foreground uppercase bg-secondary">
+                          <tr>
+                            {item.content[0].map((header: string, hIndex: number) => (
+                              <th key={hIndex} scope="col" className="px-6 py-3">
+                                {highlightText(header)}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {/* Handle plain objects (like table data without type wrapper) */}
+                        </thead>
+                        {/* Body (remaining rows) */}
+                        <tbody>
+                          {item.content.slice(1).map((row: string[], rIndex: number) => (
+                            <tr
+                              key={rIndex}
+                              className="bg-background border-b border-border hover:bg-secondary transition-colors"
+                            >
+                              {row.map((cell: string, cIndex: number) => (
+                                <td key={cIndex} className="px-6 py-4 whitespace-pre-line">
+                                  {highlightText(cell)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+         {/* Handle plain objects (like table data without type wrapper) */}
                 {!item.type && typeof item === 'object' && (
                   <div className="text-muted-foreground leading-relaxed">
                     <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
@@ -223,15 +235,15 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
               <table className="w-full text-sm text-left text-muted-foreground">
                 <thead className="text-xs text-secondary-foreground uppercase bg-secondary">
                   <tr>
-                    {Object.keys(tableContent[0]).map((header, hIndex) => (
-                      <th key={hIndex} scope="col" className="px-6 py-3">{header}</th>
+                    {Object.keys(tableContent[0]).map((header: string, hIndex: number) => (
+                      <th key={hIndex} scope="col" className="px-6 py-3">{highlightText(header)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {tableContent.map((row: Record<string, any>, rIndex: number) => (
                     <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
-                      {Object.keys(row).map((header, cIndex) => (
+                      {Object.keys(row).map((header: string, cIndex: number) => (
                         <td key={cIndex} className="px-6 py-4">{highlightText(row[header])}</td>
                       ))}
                     </tr>
@@ -286,16 +298,18 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
               <table className="w-full text-sm text-left text-muted-foreground">
                 <thead className="text-xs text-secondary-foreground uppercase bg-secondary">
                   <tr>
-                    {Object.keys(content[0]).map((header, hIndex) => (
-                      <th key={hIndex} scope="col" className="px-6 py-3">{header}</th>
+                    {/* Use the first row of the content array as headers */}
+                    {content[0].map((header: string, hIndex: number) => (
+                      <th key={hIndex} scope="col" className="px-6 py-3">{highlightText(header)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {content.map((row: Record<string, any>, rIndex: number) => (
+                  {/* Iterate over the rest of the rows for the table body */}
+                  {content.slice(1).map((row: string[], rIndex: number) => (
                     <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
-                      {Object.keys(row).map((header, cIndex) => (
-                        <td key={cIndex} className="px-6 py-4">{highlightText(row[header])}</td>
+                      {row.map((cell: string, cIndex: number) => (
+                        <td key={cIndex} className="px-6 py-4">{highlightText(cell)}</td>
                       ))}
                     </tr>
                   ))}
@@ -434,6 +448,7 @@ export default function EditExamPage() {
   const [newSectionType, setNewSectionType] = useState('paragraph');
   const [newSectionContent, setNewSectionContent] = useState('');
   const [showAddSectionForm, setShowAddSectionForm] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   
   // New state for sectionsArray to be the source of truth for rendering
   const [sectionsArray, setSectionsArray] = useState<Section[]>([]);
@@ -691,36 +706,7 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
     }
   };
   
-  const parseSimpleTable = (text: string) => {
-    console.log('Parsing simple table from text:', text);
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    const data: any[] = [];
-    
-    if (lines.length === 0) return data;
-
-    // Use a more robust split regex that handles tabs and multiple spaces
-    const headers = lines[0].split(/\t|\s{2,}/).map(p => p.trim()).filter(p => p.length > 0);
-    if (headers.length === 0) return data;
-    
-    // Parse the remaining lines as data
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        const parts = line.split(/\t|\s{2,}/).map(p => p.trim()).filter(p => p.length > 0);
-        if (parts.length === headers.length) {
-            const row: Record<string, any> = {};
-            parts.forEach((part, index) => {
-                row[headers[index]] = part;
-            });
-            data.push(row);
-        } else {
-            console.warn(`Skipping line due to column mismatch: "${line}"`);
-        }
-    }
-    console.log('Parsed table data:', data);
-    return data;
-  };
-
-  const handleAddSection = () => {
+  const handleAddSection = async () => {
     console.log('Adding new section with title:', newSectionTitle, 'and type:', newSectionType);
     if (!newSectionTitle || !newSectionContent) {
       toast.error('Please enter a title and content for the new section.');
@@ -728,48 +714,63 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
     }
 
     let newContent: any;
+    
+    // Set loading state
+    setIsParsing(true);
 
-    if (newSectionType === 'paragraph') {
-      newContent = newSectionContent;
-    } else if (newSectionType === 'points') {
-      newContent = newSectionContent.split('\n').map(line => line.trim());
-    } else { // Handle 'table' type
-      let parsedData;
-      try {
-        parsedData = JSON.parse(newSectionContent);
-        if (!Array.isArray(parsedData) || (parsedData.length > 0 && typeof parsedData[0] !== 'object')) {
-          throw new Error('Table content must be a JSON array of objects.');
+    try {
+        if (newSectionType === 'paragraph') {
+          newContent = newSectionContent;
+        } else if (newSectionType === 'points') {
+          newContent = newSectionContent.split('\n').map(line => line.trim());
+        } else { // Handle 'table' type
+            const response = await fetch('https://josaa-admin-backend-1.onrender.com/api/parse-table', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: newSectionContent }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to parse table from backend.');
+            }
+            const data = await response.json();
+            newContent = data.content;
+            if (!Array.isArray(newContent) || newContent.length === 0) {
+              throw new Error('Backend returned invalid or empty table data.');
+            }
         }
-      } catch (jsonErr) {
-        parsedData = parseSimpleTable(newSectionContent);
-        if (!parsedData || parsedData.length === 0) {
-          toast.error('Invalid content format. Please enter valid JSON or a simple text table, with headers on the first line and each row on a new line.');
-          return;
-        }
-      }
-      newContent = parsedData;
+        
+        // Create the new section with type and content at the top level
+        const newSection = {
+          id: newSectionTitle, // Use the title as the ID
+          key: newSectionTitle,
+          content: {
+            type: newSectionType,
+            content: newContent,
+          }
+        };
+        
+        // Add new section to the sectionsArray
+        setSectionsArray(prev => [...prev, newSection]);
+        
+        // Clear form fields and hide the form
+        setNewSectionTitle('');
+        setNewSectionType('paragraph');
+        setNewSectionContent('');
+        setShowAddSectionForm(false);
+        toast.success('New section added successfully! Please click "Update All Content" to save changes.');
+        console.log('New section added to state. Current sectionsArray:', [...sectionsArray, newSection]);
+
+    } catch (error: any) {
+        console.error('Error adding new section:', error);
+        toast.error(`Error: ${error.message}`);
+    } finally {
+        // Clear loading state
+        setIsParsing(false);
     }
-    
-    // Create the new section with type and content at the top level
-    const newSection = {
-      id: newSectionTitle, // Use the title as the ID
-      key: newSectionTitle,
-      content: {
-        type: newSectionType,
-        content: newContent,
-      }
-    };
-    
-    // Add new section to the sectionsArray
-    setSectionsArray(prev => [...prev, newSection]);
-    
-    // Clear form fields and hide the form
-    setNewSectionTitle('');
-    setNewSectionType('paragraph');
-    setNewSectionContent('');
-    setShowAddSectionForm(false);
-    toast.success('New section added successfully! Please click "Update All Content" to save changes.');
-    console.log('New section added to state. Current sectionsArray:', [...sectionsArray, newSection]);
   };
 
   const highlightText = (text: string) => {
@@ -1080,9 +1081,18 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
                         }
                       />
                     </div>
-                    <Button onClick={handleAddSection}>
-                      <IconPlus size={16} className="mr-2" />
-                      Add New Section
+                    <Button onClick={handleAddSection} disabled={isParsing}>
+                      {isParsing ? (
+                        <>
+                          <IconLoader size={16} className="mr-2 animate-spin" />
+                          Parsing Table...
+                        </>
+                      ) : (
+                        <>
+                          <IconPlus size={16} className="mr-2" />
+                          Add New Section
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
