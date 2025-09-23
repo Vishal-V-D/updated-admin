@@ -1210,7 +1210,7 @@ if (invalidSubsections.length > 0) {
             .map(line => line.trim())
             .filter(line => line.length > 0);
         } else { // table
-          const response = await fetch('http://127.0.0.1:8000/api/parse-table', {
+          const response = await fetch('https://josaa-admin-backend-1.onrender.com/api/parse-table', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: subsection.content }),
