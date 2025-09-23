@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { IconArrowLeft, IconGauge, IconEdit, IconTrash, IconPlus, IconReplace, IconGripVertical, IconLoader } from '@tabler/icons-react';
+import { IconArrowLeft, IconGauge, IconEdit,IconFolderPlus, IconTrash, IconPlus, IconReplace, IconGripVertical, IconLoader } from '@tabler/icons-react';
 import PageContainer from '@/components/layout/page-container';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -39,6 +39,17 @@ interface FetchedExamData {
   [key: string]: any;
 }
 
+interface MultipleSection {
+  id: string;
+  mainTitle: string;
+  subsections: {
+    id: string;
+    subtitle?: string; // Made optional
+    type: string;
+    content: string;
+  }[];
+}
+
 // Draggable Item Component
 // Fixed SortableItem Component
 function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempSectionContent, setTempSectionContent, handleSave, handleCancel, highlightText }: {
@@ -51,7 +62,6 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
   handleSave: () => void,
   handleCancel: () => void,
   highlightText: (text: string) => React.ReactNode,
-
 }) {
   const {
     attributes,
@@ -74,7 +84,46 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
   console.log('Is editing this section:', isEditingThisSection);
   console.log('Section content:', section.content);
 
+  // Helper function to render text with line breaks
+  const renderTextWithLineBreaks = (text: string) => {
+    if (!text || typeof text !== 'string') return text;
+    
+    const lines = text.split('\n');
+    
+    return lines.map((line, index) => (
+      <React.Fragment key={index}>
+        {highlightText(line)}
+        {index < lines.length - 1 && <br />}
+      </React.Fragment>
+    ));
+  };
+
+  // Enhanced edit form with line break support
   if (isEditingThisSection) {
+    // Helper function to get formatting hints
+    const getFormatHints = () => {
+      if (section.content?.type === 'paragraph' || typeof section.content === 'string') {
+        return (
+          <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded">
+            <strong>Formatting Tips:</strong>
+            <br />• Press Enter once to create a line break
+            <br />• Press Enter twice to create paragraph spacing
+            <br />• Line breaks will be preserved in display
+          </div>
+        );
+      } else if (section.content?.type === 'points') {
+        return (
+          <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded">
+            <strong>Points Format:</strong>
+            <br />• Each line becomes a bullet point
+            <br />• Empty lines will be ignored
+            <br />• No need to add bullet symbols
+          </div>
+        );
+      }
+      return null;
+    };
+
     return (
       <div
         ref={setNodeRef}
@@ -85,18 +134,33 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
           <IconGripVertical size={20} />
         </div>
         <h4 className="text-md font-semibold text-secondary-foreground mb-2">Editing: {section.key}</h4>
+        
+        {getFormatHints()}
+        
         <Textarea
-          className="w-full h-64 p-4 border border-border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary bg-muted text-foreground"
+          className="w-full h-64 p-4 border border-border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground font-mono text-sm leading-relaxed"
           value={tempSectionContent || ''}
           onChange={(e) => setTempSectionContent(e.target.value)}
+          placeholder="Enter your content here. Press Enter for line breaks, double Enter for paragraph spacing."
+          style={{
+            whiteSpace: 'pre-wrap', // This is KEY - preserves whitespace and line breaks
+            wordWrap: 'break-word'
+          }}
         />
-        <div className="flex justify-end space-x-2 mt-4">
-          <Button type="button" variant="outline" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSave}>
-            Save
-          </Button>
+        
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-xs text-muted-foreground">
+            Characters: {tempSectionContent?.length || 0} | Lines: {tempSectionContent?.split('\n').length || 1}
+          </div>
+          
+          <div className="flex space-x-2">
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave}>
+              Save Changes
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -113,22 +177,22 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
           <div key={itemIndex}>
             {/* Handle different item structures */}
             {typeof item === 'string' && (
-              <p className="text-muted-foreground leading-relaxed">
-                {highlightText(item)}
-              </p>
+              <div className="text-muted-foreground leading-relaxed">
+                {renderTextWithLineBreaks(item)}
+              </div>
             )}
             {typeof item === 'object' && item !== null && (
               <>
                 {item.type === "paragraph" && item.text && (
-                  <p className="text-muted-foreground leading-relaxed">
-                    {highlightText(item.text)}
-                  </p>
+                  <div className="text-muted-foreground leading-relaxed">
+                    {renderTextWithLineBreaks(item.text)}
+                  </div>
                 )}
                 {item.type === "points" && Array.isArray(item.list) && (
                   <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     {item.list.map((point: string, pIndex: number) => (
                       <li key={pIndex} className="leading-relaxed">
-                        {highlightText(point)}
+                        {renderTextWithLineBreaks(point)}
                       </li>
                     ))}
                   </ul>
@@ -158,7 +222,7 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
                             >
                               {row.map((cell: string, cIndex: number) => (
                                 <td key={cIndex} className="px-6 py-4 whitespace-pre-line">
-                                  {highlightText(cell)}
+                                  {renderTextWithLineBreaks(cell)}
                                 </td>
                               ))}
                             </tr>
@@ -227,9 +291,9 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
         </div>
         <div className="flex-1 pr-10">
           <h4 className="text-md font-semibold text-secondary-foreground">{highlightText(section.key)}</h4>
-          <p className="text-muted-foreground mt-2 leading-relaxed">
-            {highlightText(paragraphText)}
-          </p>
+          <div className="text-muted-foreground mt-2 leading-relaxed">
+            {renderTextWithLineBreaks(paragraphText)}
+          </div>
           {Array.isArray(tableContent) && tableContent.length > 0 && (
             <div className="overflow-x-auto mt-4 rounded-lg border border-border">
               <table className="w-full text-sm text-left text-muted-foreground">
@@ -244,7 +308,9 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
                   {tableContent.map((row: Record<string, any>, rIndex: number) => (
                     <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
                       {Object.keys(row).map((header: string, cIndex: number) => (
-                        <td key={cIndex} className="px-6 py-4">{highlightText(row[header])}</td>
+                        <td key={cIndex} className="px-6 py-4">
+                          {renderTextWithLineBreaks(row[header])}
+                        </td>
                       ))}
                     </tr>
                   ))}
@@ -280,15 +346,15 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
         <div className="flex-1 pr-10">
           <h4 className="text-md font-semibold text-secondary-foreground">{highlightText(section.key)}</h4>
           {type === 'paragraph' && content && (
-            <p className="text-muted-foreground mt-2 leading-relaxed">
-              {highlightText(content)}
-            </p>
+            <div className="text-muted-foreground mt-2 leading-relaxed">
+              {renderTextWithLineBreaks(content)}
+            </div>
           )}
           {type === 'points' && Array.isArray(content) && (
             <ul className="list-disc list-inside text-muted-foreground mt-2 space-y-2">
               {content.map((point: string, pIndex: number) => (
                 <li key={pIndex} className="leading-relaxed">
-                  {highlightText(point)}
+                  {renderTextWithLineBreaks(point)}
                 </li>
               ))}
             </ul>
@@ -309,7 +375,9 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
                   {content.slice(1).map((row: string[], rIndex: number) => (
                     <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
                       {row.map((cell: string, cIndex: number) => (
-                        <td key={cIndex} className="px-6 py-4">{highlightText(cell)}</td>
+                        <td key={cIndex} className="px-6 py-4">
+                          {renderTextWithLineBreaks(cell)}
+                        </td>
                       ))}
                     </tr>
                   ))}
@@ -330,9 +398,157 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
     );
   }
   
-  // Handle nested object structure (like {mainKey: [array of items]})
+  // Handle multiple sections structure (NEW - for your JSON format)
   if (typeof sectionData === 'object' && sectionData !== null) {
-    console.log("Section data is a nested object. Processing...");
+    console.log("Checking if this is a multiple sections structure...");
+    
+    // Check if this looks like a multiple sections structure
+    const keys = Object.keys(sectionData);
+    const hasMultipleSectionStructure = keys.length > 0 && keys.every(key => 
+      Array.isArray(sectionData[key]) && 
+      sectionData[key].length > 0 && 
+      sectionData[key].every((item: any) => item && typeof item === 'object' && item.type && item.content !== undefined)
+    );
+
+    if (hasMultipleSectionStructure) {
+      console.log("This is a multiple sections structure. Rendering...");
+      
+      return (
+        <div
+          ref={setNodeRef}
+          style={style}
+          className={`p-4 bg-secondary rounded-lg my-4 flex justify-between items-start relative ${isDragging ? 'opacity-50' : ''}`}
+        >
+          <div className="absolute top-2 right-2 cursor-grab text-muted-foreground" {...listeners} {...attributes}>
+            <IconGripVertical size={20} />
+          </div>
+          <div className="flex-1 pr-10">
+            <h4 className="text-lg font-bold text-secondary-foreground mb-4">{highlightText(section.key)}</h4>
+            
+            {/* Render each subsection */}
+            <div className="space-y-6">
+              {keys.map((subsectionKey, subsectionIndex) => {
+                const subsectionArray = sectionData[subsectionKey];
+                const isAutoGeneratedKey = /^Section \d+$/.test(subsectionKey);
+                
+                return (
+                  <div key={subsectionIndex} className="border-l-4 border-primary/30 pl-4">
+                    {/* Only show subtitle if it's not auto-generated */}
+                    {!isAutoGeneratedKey && (
+                      <h5 className="text-md font-semibold text-secondary-foreground mb-3">
+                        {highlightText(subsectionKey)}
+                      </h5>
+                    )}
+                    
+                    {/* Render content for each item in the subsection array */}
+                    {subsectionArray.map((item: any, itemIndex: number) => (
+                      <div key={itemIndex} className="mb-4">
+                        {/* Handle paragraph type */}
+                        {item.type === 'paragraph' && typeof item.content === 'string' && (
+                          <div className="text-muted-foreground leading-relaxed">
+                            {renderTextWithLineBreaks(item.content)}
+                          </div>
+                        )}
+                        
+                        {/* Handle points type */}
+                        {item.type === 'points' && Array.isArray(item.content) && (
+                          <ul className="list-disc list-inside text-muted-foreground space-y-2">
+                            {item.content.map((point: string, pIndex: number) => (
+                              <li key={pIndex} className="leading-relaxed">
+                                {renderTextWithLineBreaks(point)}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        
+                        {/* Handle table type */}
+                        {item.type === 'table' && Array.isArray(item.content) && item.content.length > 0 && (
+                          <div className="overflow-x-auto mt-4 rounded-lg border border-border">
+                            <table className="w-full text-sm text-left text-muted-foreground">
+                              {/* Check if we have proper table structure */}
+                              {item.content.length > 1 && Array.isArray(item.content[0]) ? (
+                                <>
+                                  {/* Header (first row) */}
+                                  <thead className="text-xs text-secondary-foreground uppercase bg-secondary">
+                                    <tr>
+                                      {item.content[0].map((header: string, hIndex: number) => (
+                                        <th key={hIndex} scope="col" className="px-6 py-3">
+                                          {highlightText(header)}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  {/* Body (remaining rows) */}
+                                  <tbody>
+                                    {item.content.slice(1).map((row: string[], rIndex: number) => {
+                                      // Skip rows that don't have the same structure as header
+                                      if (!Array.isArray(row) || row.length !== item.content[0].length) {
+                                        return (
+                                          <tr key={rIndex} className="bg-background border-b border-border">
+                                            <td colSpan={item.content[0].length} className="px-6 py-4 text-center font-medium">
+                                              {renderTextWithLineBreaks(row[0] || row.toString())}
+                                            </td>
+                                          </tr>
+                                        );
+                                      }
+                                      return (
+                                        <tr key={rIndex} className="bg-background border-b border-border hover:bg-secondary transition-colors">
+                                          {row.map((cell: string, cIndex: number) => (
+                                            <td key={cIndex} className="px-6 py-4 whitespace-pre-line">
+                                              {renderTextWithLineBreaks(cell)}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </>
+                              ) : (
+                                /* Fallback for malformed table data */
+                                <tbody>
+                                  <tr className="bg-background border-b border-border">
+                                    <td className="px-6 py-4">
+                                      <pre className="text-xs text-muted-foreground">
+                                        {JSON.stringify(item.content, null, 2)}
+                                      </pre>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              )}
+                            </table>
+                          </div>
+                        )}
+                        
+                        {/* Handle unknown item types */}
+                        {!['paragraph', 'points', 'table'].includes(item.type) && (
+                          <div className="bg-muted p-3 rounded text-xs">
+                            <p className="text-yellow-600 mb-2">Unknown subsection type: {item.type}</p>
+                            <pre className="overflow-x-auto">
+                              {JSON.stringify(item, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex space-x-2 shrink-0">
+            <Button variant="ghost" size="sm" onClick={() => handleEdit(section.key)}>
+              <IconEdit size={16} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleDelete(section.key)}>
+              <IconTrash size={16} className="text-destructive" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Continue with existing nested object handling for other structures
+    console.log("Not a multiple sections structure, checking for other nested object patterns...");
     const mainKey = Object.keys(sectionData)[0];
     const mainContent = sectionData[mainKey];
 
@@ -424,7 +640,6 @@ function SortableItem({ section, handleEdit, handleDelete, editSectionKey, tempS
     </div>
   );
 }
-
 // Main Page Component
 export default function EditExamPage() {
   const router = useRouter();
@@ -452,7 +667,12 @@ export default function EditExamPage() {
   
   // New state for sectionsArray to be the source of truth for rendering
   const [sectionsArray, setSectionsArray] = useState<Section[]>([]);
-
+const [showAddMultipleSectionsForm, setShowAddMultipleSectionsForm] = useState(false);
+const [multipleSectionData, setMultipleSectionData] = useState<MultipleSection>({
+  id: '',
+  mainTitle: '',
+  subsections: []
+});
 
   // Drag and Drop state
   const sensors = useSensors(
@@ -653,41 +873,121 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
     }
   };
 
-  const handleEditSection = (key: string) => {
-    console.log('Editing section with key:', key);
-    const sectionToEdit = sectionsArray.find(s => s.key === key);
-    if (sectionToEdit) {
-      setEditSectionKey(key);
-      setTempSectionContent(JSON.stringify(sectionToEdit.content, null, 2));
-      console.log('Populated edit form with content:', JSON.stringify(sectionToEdit.content, null, 2));
+const handleEditSection = (key: string) => {
+  console.log('Editing section with key:', key);
+  const sectionToEdit = sectionsArray.find(s => s.key === key);
+  if (sectionToEdit) {
+    setEditSectionKey(key);
+    
+    // Enhanced content handling for better text editing
+    let editableContent = '';
+    
+    if (typeof sectionToEdit.content === 'string') {
+      // Direct string content - keep as is
+      editableContent = sectionToEdit.content;
+    } else if (sectionToEdit.content?.type === 'paragraph' && sectionToEdit.content?.content) {
+      // Paragraph type with content - extract the text content
+      editableContent = sectionToEdit.content.content;
+    } else if (sectionToEdit.content?.type === 'points' && Array.isArray(sectionToEdit.content?.content)) {
+      // Points list - convert to line-separated text
+      editableContent = sectionToEdit.content.content.join('\n');
+    } else if (Array.isArray(sectionToEdit.content)) {
+      // Handle array content - extract text from each item
+      editableContent = sectionToEdit.content.map(item => {
+        if (typeof item === 'string') return item;
+        if (item?.text) return item.text;
+        if (item?.type === 'paragraph' && item?.text) return item.text;
+        return JSON.stringify(item, null, 2);
+      }).join('\n\n'); // Double line break between items
+    } else {
+      // Fallback to JSON for complex structures
+      editableContent = JSON.stringify(sectionToEdit.content, null, 2);
     }
-  };
+    
+    setTempSectionContent(editableContent);
+    console.log('Populated edit form with content:', editableContent);
+  }
+};
   
-  const handleSaveSection = () => {
-    console.log('Saving section edit for key:', editSectionKey);
-    if (!editSectionKey) return;
-    try {
-      const newSectionContent = JSON.parse(tempSectionContent);
-      console.log('Parsed new content:', newSectionContent);
-      
-      const updatedSectionsArray = sectionsArray.map(section => {
-          if(section.key === editSectionKey) {
-              return { ...section, content: newSectionContent };
-          }
-          return section;
-      });
+const handleSaveSection = () => {
+  console.log('Saving section edit for key:', editSectionKey);
+  if (!editSectionKey) return;
 
-      setSectionsArray(updatedSectionsArray);
+  const sectionToUpdate = sectionsArray.find((s) => s.key === editSectionKey);
+  if (!sectionToUpdate) return;
 
-      setEditSectionKey(null);
-      setTempSectionContent(null);
-      toast.success('Section updated successfully! Please click "Update All Content" to save changes.');
-      console.log('Section state updated in component. New sectionsArray:', updatedSectionsArray);
-    } catch (err) {
-      console.error('JSON parsing error:', err);
-      toast.error('Invalid JSON format. Please correct and try again.');
+  try {
+    let newSectionContent: any;
+    const originalContent = sectionToUpdate.content;
+
+    if (typeof originalContent === 'string') {
+      // Direct string content - preserve as string with line breaks
+      newSectionContent = tempSectionContent;
+    } else if (originalContent?.type === 'paragraph') {
+      // Paragraph type - update content but preserve structure
+      newSectionContent = {
+        ...originalContent,
+        content: tempSectionContent, // Keep line breaks as they are
+      };
+    } else if (originalContent?.type === 'points') {
+      // Points list - convert back to array, splitting by newlines
+      const pointsArray = tempSectionContent
+        .split('\n')
+        .map((line: string) => line.trim()) // ✅ typed
+        .filter((line: string) => line.length > 0);
+
+      newSectionContent = {
+        ...originalContent,
+        content: pointsArray,
+      };
+    } else if (Array.isArray(originalContent)) {
+      // Handle array content - split by double line breaks for paragraphs
+      const paragraphs = tempSectionContent
+        .split('\n\n')
+        .map((para: string) => para.trim()) // ✅ typed
+        .filter((para: string) => para.length > 0);
+
+      // Try to match original structure
+      if (originalContent.every((item: any) => typeof item === 'string')) {
+        newSectionContent = paragraphs;
+      } else {
+        // Convert to paragraph objects with preserved line breaks
+        newSectionContent = paragraphs.map((para: string) => ({
+          type: 'paragraph',
+          text: para,
+        }));
+      }
+    } else {
+      // Complex structure - try to parse as JSON first, fallback to text
+      try {
+        newSectionContent = JSON.parse(tempSectionContent);
+      } catch {
+        newSectionContent = {
+          type: 'paragraph',
+          content: tempSectionContent,
+        };
+      }
     }
-  };
+
+    const updatedSectionsArray = sectionsArray.map((section) => {
+      if (section.key === editSectionKey) {
+        return { ...section, content: newSectionContent };
+      }
+      return section;
+    });
+
+    setSectionsArray(updatedSectionsArray);
+    setEditSectionKey(null);
+    setTempSectionContent(null);
+    toast.success(
+      'Section updated successfully! Please click "Update All Content" to save changes.'
+    );
+  } catch (err) {
+    console.error('Error saving section:', err);
+    toast.error('Error saving section. Please check your formatting.');
+  }
+};
+
 
   const handleCancelEdit = () => {
     console.log('Canceling section edit.');
@@ -720,10 +1020,13 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
 
     try {
         if (newSectionType === 'paragraph') {
-          newContent = newSectionContent;
-        } else if (newSectionType === 'points') {
-          newContent = newSectionContent.split('\n').map(line => line.trim());
-        } else { // Handle 'table' type
+    newContent = newSectionContent;
+  } else if (newSectionType === 'points') {
+    newContent = newSectionContent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0); // This is the new line
+  } else { // Handle 'table' type
             const response = await fetch('https://josaa-admin-backend-1.onrender.com/api/parse-table', {
                 method: 'POST',
                 headers: {
@@ -773,17 +1076,66 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
     }
   };
 
-  const highlightText = (text: string) => {
-    if (!findText || typeof text !== 'string') return text;
-    const parts = text.split(new RegExp(`(${findText})`, 'gi'));
-    return parts.map((part, index) =>
-      part.toLowerCase() === findText.toLowerCase() ? (
-        <span key={index} className="bg-yellow-200">{part}</span>
-      ) : (
-        part
-      )
-    );
-  };
+  const parseMarkdownText = (text: string): React.ReactNode => {
+  if (typeof text !== 'string') return text;
+  
+  // Split text by markdown patterns while preserving the delimiters
+  const parts = text.split(/(\*\*.*?\*\*|\*(?!\*).*?\*(?!\*)|__.*?__|_(?!_).*?_(?!_))/g);
+  
+  return parts.map((part, index) => {
+    // Handle bold with **text**
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    // Handle bold with __text__
+    if (part.startsWith('__') && part.endsWith('__') && part.length > 4) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    // Handle italic with *text* (but not **text**)
+    if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**') && part.length > 2) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    // Handle italic with _text_ (but not __text__)
+    if (part.startsWith('_') && part.endsWith('_') && !part.startsWith('__') && part.length > 2) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    // Return plain text
+    return part;
+  });
+};
+
+
+const highlightText = (text: string) => {
+  if (!text || typeof text !== 'string') return text;
+  
+  // First parse markdown
+  const markdownParsed = parseMarkdownText(text);
+  
+  // If no find text, return the markdown parsed version
+  if (!findText) {
+    return markdownParsed;
+  }
+  
+  // For highlighting with search, we need to handle both markdown and highlighting
+  // This is more complex because we need to preserve React elements
+  const parts = text.split(new RegExp(`(${findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  
+  return parts.map((part, index) => {
+    const isHighlight = part.toLowerCase() === findText.toLowerCase();
+    const parsedPart = parseMarkdownText(part);
+    
+    if (isHighlight) {
+      return (
+        <span key={index} className="bg-yellow-200">
+          {parsedPart}
+        </span>
+      );
+    }
+    
+    return <React.Fragment key={index}>{parsedPart}</React.Fragment>;
+  });
+};
+
   
   const handleDragEnd = (event: any) => {
     console.log('Drag ended. Active ID:', event.active.id, 'Over ID:', event.over.id);
@@ -799,6 +1151,356 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
     }
   };
 
+  const handleAddSubsection = () => {
+  const newSubsection = {
+    id: Date.now().toString(),
+    subtitle: '',
+    type: 'paragraph',
+    content: ''
+  };
+  setMultipleSectionData(prev => ({
+    ...prev,
+    subsections: [...prev.subsections, newSubsection]
+  }));
+};
+
+const handleDeleteSubsection = (subsectionId: string) => {
+  setMultipleSectionData(prev => ({
+    ...prev,
+    subsections: prev.subsections.filter(sub => sub.id !== subsectionId)
+  }));
+};
+
+const handleSubsectionChange = (subsectionId: string, field: string, value: string) => {
+  setMultipleSectionData(prev => ({
+    ...prev,
+    subsections: prev.subsections.map(sub => 
+      sub.id === subsectionId ? { ...sub, [field]: value } : sub
+    )
+  }));
+};
+
+const handleAddMultipleSections = async () => {
+  console.log('Adding multiple sections:', multipleSectionData);
+  if (!multipleSectionData.mainTitle || multipleSectionData.subsections.length === 0) {
+    toast.error('Please enter a main title and at least one subsection.');
+    return;
+  }
+
+  // Validate that all subsections have content (subtitle is optional)
+ const invalidSubsections = multipleSectionData.subsections.filter(sub => !sub.content || !sub.content.trim());
+if (invalidSubsections.length > 0) {
+  toast.error('Please fill in all content fields for subsections.');
+  return;
+}
+
+  setIsParsing(true);
+
+  try {
+    // Process each subsection
+    const processedSubsections = await Promise.all(
+      multipleSectionData.subsections.map(async (subsection) => {
+        let processedContent: any;
+
+        if (subsection.type === 'paragraph') {
+          processedContent = subsection.content;
+        } else if (subsection.type === 'points') {
+          processedContent = subsection.content
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        } else { // table
+          const response = await fetch('http://127.0.0.1:8000/api/parse-table', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: subsection.content }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to parse table for "${subsection.subtitle || 'Unnamed subsection'}": ${errorData.detail}`);
+          }
+          const data = await response.json();
+          processedContent = data.content;
+        }
+
+        return {
+          type: subsection.type,
+          content: processedContent
+        };
+      })
+    );
+
+    // Create the main section structure - handle optional subtitles
+    const mainSectionContent = processedSubsections.reduce((acc, subsection, index) => {
+      const subtitle = multipleSectionData.subsections[index].subtitle;
+      
+      // If subtitle exists, use it as the key, otherwise use a generic key with index
+      const sectionKey = subtitle || `Section ${index + 1}`;
+      acc[sectionKey] = [subsection];
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Add to sectionsArray
+    const newSection = {
+      id: multipleSectionData.mainTitle,
+      key: multipleSectionData.mainTitle,
+      content: mainSectionContent
+    };
+
+    setSectionsArray(prev => [...prev, newSection]);
+
+    // Reset form
+    setMultipleSectionData({
+      id: '',
+      mainTitle: '',
+      subsections: []
+    });
+    setShowAddMultipleSectionsForm(false);
+
+    toast.success('Multiple sections added successfully! Please click "Update All Content" to save changes.');
+    console.log('Multiple sections added to state:', newSection);
+
+  } catch (error: any) {
+    console.error('Error adding multiple sections:', error);
+    toast.error(`Error: ${error.message}`);
+  } finally {
+    setIsParsing(false);
+  }
+};
+
+// Updated form section in the JSX
+{showAddMultipleSectionsForm && (
+  <Card className="mt-4 mb-8">
+    <CardHeader>
+      <CardTitle>Add Multiple Sections</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div>
+        <Label htmlFor="main-title">Main Title</Label>
+        <Input
+          id="main-title"
+          value={multipleSectionData.mainTitle}
+          onChange={(e) => setMultipleSectionData(prev => ({ ...prev, mainTitle: e.target.value }))}
+          placeholder="e.g., Exam Pattern & Syllabus"
+        />
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label>Subsections</Label>
+          <Button type="button" variant="outline" size="sm" onClick={handleAddSubsection}>
+            <IconPlus size={14} className="mr-1" />
+            Add Subsection
+          </Button>
+        </div>
+
+        {multipleSectionData.subsections.map((subsection, index) => (
+          <div key={subsection.id} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium">Subsection {index + 1}</h4>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleDeleteSubsection(subsection.id)}
+                className="text-destructive hover:text-destructive"
+              >
+                <IconTrash size={14} />
+              </Button>
+            </div>
+
+            <div>
+              <Label>
+                Subtitle 
+                <span className="text-muted-foreground text-sm ml-1">(optional)</span>
+              </Label>
+              <Input
+                value={subsection.subtitle || ''}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'subtitle', e.target.value)}
+                placeholder="e.g., Exam Pattern (leave empty for no subtitle)"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If left empty, this subsection will be displayed without a subtitle
+              </p>
+            </div>
+
+            <div>
+              <Label>Type</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={subsection.type}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'type', e.target.value)}
+              >
+                <option value="paragraph">Paragraph</option>
+                <option value="points">Points List</option>
+                <option value="table">Table</option>
+              </select>
+            </div>
+
+            <div>
+              <Label>
+                Content <span className="text-red-500">*</span>
+                <span className="text-muted-foreground">
+                  {subsection.type === 'points' && ' (one item per line)'}
+                  {subsection.type === 'table' && ' (Enter table data with headers. Use tabs or multiple spaces to separate columns.)'}
+                </span>
+              </Label>
+              <Textarea
+                value={subsection.content}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'content', e.target.value)}
+                placeholder={
+                  subsection.type === 'paragraph'
+                    ? 'Enter the paragraph content here.'
+                    : subsection.type === 'points'
+                    ? 'Enter each point on a new line.'
+                    : 'First line: Description Column1 Column2\\nSecond line: Up to 3 subjects\\t₹1000/-\\t₹900/-'
+                }
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+        ))}
+
+        {multipleSectionData.subsections.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+            No subsections added yet. Click "Add Subsection" to get started.
+          </div>
+        )}
+      </div>
+
+      <Button onClick={handleAddMultipleSections} disabled={isParsing || !multipleSectionData.mainTitle || multipleSectionData.subsections.length === 0}>
+        {isParsing ? (
+          <>
+            <IconLoader size={16} className="mr-2 animate-spin" />
+            Processing Sections...
+          </>
+        ) : (
+          <>
+            <IconFolderPlus size={16} className="mr-2" />
+            Add All Sections
+          </>
+        )}
+      </Button>
+    </CardContent>
+  </Card>
+)}
+// Updated form section in the JSX
+{showAddMultipleSectionsForm && (
+  <Card className="mt-4 mb-8">
+    <CardHeader>
+      <CardTitle>Add Multiple Sections</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div>
+        <Label htmlFor="main-title">Main Title</Label>
+        <Input
+          id="main-title"
+          value={multipleSectionData.mainTitle}
+          onChange={(e) => setMultipleSectionData(prev => ({ ...prev, mainTitle: e.target.value }))}
+          placeholder="e.g., Exam Pattern & Syllabus"
+        />
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label>Subsections</Label>
+          <Button type="button" variant="outline" size="sm" onClick={handleAddSubsection}>
+            <IconPlus size={14} className="mr-1" />
+            Add Subsection
+          </Button>
+        </div>
+
+        {multipleSectionData.subsections.map((subsection, index) => (
+          <div key={subsection.id} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium">Subsection {index + 1}</h4>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleDeleteSubsection(subsection.id)}
+                className="text-destructive hover:text-destructive"
+              >
+                <IconTrash size={14} />
+              </Button>
+            </div>
+
+            <div>
+              <Label>
+                Subtitle 
+                <span className="text-muted-foreground text-sm ml-1">(optional)</span>
+              </Label>
+              <Input
+                value={subsection.subtitle || ''}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'subtitle', e.target.value)}
+                placeholder="e.g., Exam Pattern (leave empty for no subtitle)"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If left empty, this subsection will be displayed without a subtitle
+              </p>
+            </div>
+
+            <div>
+              <Label>Type</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={subsection.type}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'type', e.target.value)}
+              >
+                <option value="paragraph">Paragraph</option>
+                <option value="points">Points List</option>
+                <option value="table">Table</option>
+              </select>
+            </div>
+
+            <div>
+              <Label>
+                Content <span className="text-red-500">*</span>
+                <span className="text-muted-foreground">
+                  {subsection.type === 'points' && ' (one item per line)'}
+                  {subsection.type === 'table' && ' (Enter table data with headers. Use tabs or multiple spaces to separate columns.)'}
+                </span>
+              </Label>
+              <Textarea
+                value={subsection.content}
+                onChange={(e) => handleSubsectionChange(subsection.id, 'content', e.target.value)}
+                placeholder={
+                  subsection.type === 'paragraph'
+                    ? 'Enter the paragraph content here.'
+                    : subsection.type === 'points'
+                    ? 'Enter each point on a new line.'
+                    : 'First line: Description Column1 Column2\\nSecond line: Up to 3 subjects\\t₹1000/-\\t₹900/-'
+                }
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+        ))}
+
+        {multipleSectionData.subsections.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+            No subsections added yet. Click "Add Subsection" to get started.
+          </div>
+        )}
+      </div>
+
+      <Button onClick={handleAddMultipleSections} disabled={isParsing || !multipleSectionData.mainTitle || multipleSectionData.subsections.length === 0}>
+        {isParsing ? (
+          <>
+            <IconLoader size={16} className="mr-2 animate-spin" />
+            Processing Sections...
+          </>
+        ) : (
+          <>
+            <IconFolderPlus size={16} className="mr-2" />
+            Add All Sections
+          </>
+        )}
+      </Button>
+    </CardContent>
+  </Card>
+)}
   const renderSectionContent = () => {
     console.log('Rendering section content. sectionsArray length:', sectionsArray.length);
     if (initialLoading) {
@@ -1025,10 +1727,14 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
             
             {renderSectionContent()}
             
-            <div className="mt-4 flex justify-end">
+             <div className="mt-4 flex justify-end space-x-2">
                 <Button onClick={() => setShowAddSectionForm(!showAddSectionForm)} variant="secondary">
                   <IconPlus size={16} className="mr-2" />
                   {showAddSectionForm ? 'Cancel Add Section' : 'Add New Section'}
+                </Button>
+                <Button onClick={() => setShowAddMultipleSectionsForm(!showAddMultipleSectionsForm)} variant="secondary">
+                  <IconFolderPlus size={16} className="mr-2" />
+                  {showAddMultipleSectionsForm ? 'Cancel Multiple Sections' : 'Add Multiple Sections'}
                 </Button>
             </div>
             
@@ -1091,6 +1797,115 @@ console.log('Reordered tab content for active tab:', reorderedTabContent);
                         <>
                           <IconPlus size={16} className="mr-2" />
                           Add New Section
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+            )}
+              {showAddMultipleSectionsForm && (
+                <Card className="mt-4 mb-8">
+                  <CardHeader>
+                    <CardTitle>Add Multiple Sections</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="main-title">Main Title</Label>
+                      <Input
+                        id="main-title"
+                        value={multipleSectionData.mainTitle}
+                        onChange={(e) => setMultipleSectionData(prev => ({ ...prev, mainTitle: e.target.value }))}
+                        placeholder="e.g., Exam Pattern & Syllabus"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <Label>Subsections</Label>
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddSubsection}>
+                          <IconPlus size={14} className="mr-1" />
+                          Add Subsection
+                        </Button>
+                      </div>
+
+                      {multipleSectionData.subsections.map((subsection, index) => (
+                        <div key={subsection.id} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium">Subsection {index + 1}</h4>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteSubsection(subsection.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <IconTrash size={14} />
+                            </Button>
+                          </div>
+
+                          <div>
+                            <Label>Subtitle</Label>
+                            <Input
+                              value={subsection.subtitle}
+                              onChange={(e) => handleSubsectionChange(subsection.id, 'subtitle', e.target.value)}
+                              placeholder="e.g., Exam Pattern"
+                            />
+                          </div>
+
+                          <div>
+                            <Label>Type</Label>
+                            <select
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              value={subsection.type}
+                              onChange={(e) => handleSubsectionChange(subsection.id, 'type', e.target.value)}
+                            >
+                              <option value="paragraph">Paragraph</option>
+                              <option value="points">Points List</option>
+                              <option value="table">Table</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <Label>
+                              Content
+                              <span className="text-muted-foreground">
+                                {subsection.type === 'points' && ' (one item per line)'}
+                                {subsection.type === 'table' && ' (Enter table data with headers. Use tabs or multiple spaces to separate columns.)'}
+                              </span>
+                            </Label>
+                            <Textarea
+                              value={subsection.content}
+                              onChange={(e) => handleSubsectionChange(subsection.id, 'content', e.target.value)}
+                              placeholder={
+                                subsection.type === 'paragraph'
+                                  ? 'Enter the paragraph content here.'
+                                  : subsection.type === 'points'
+                                  ? 'Enter each point on a new line.'
+                                  : 'First line: Description Column1 Column2\\nSecond line: Up to 3 subjects\\tâ‚¹1000/-\\tâ‚¹900/-'
+                              }
+                              className="min-h-[100px]"
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {multipleSectionData.subsections.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                          No subsections added yet. Click "Add Subsection" to get started.
+                        </div>
+                      )}
+                    </div>
+
+                    <Button onClick={handleAddMultipleSections} disabled={isParsing || !multipleSectionData.mainTitle || multipleSectionData.subsections.length === 0}>
+                      {isParsing ? (
+                        <>
+                          <IconLoader size={16} className="mr-2 animate-spin" />
+                          Processing Sections...
+                        </>
+                      ) : (
+                        <>
+                          <IconFolderPlus size={16} className="mr-2" />
+                          Add All Sections
                         </>
                       )}
                     </Button>
