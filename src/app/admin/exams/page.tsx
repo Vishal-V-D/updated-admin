@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -42,7 +42,6 @@ import {
   IconBuilding,
   IconBuildingEstate,
   IconBuildingMonument,
-  IconEye,
   IconPencil,
   IconTrash,
   IconSearch,
@@ -51,95 +50,279 @@ import {
   IconChevronRight,
   IconSchool,
   IconPlus,
+  IconGripVertical,
 } from '@tabler/icons-react';
 import PageContainer from '@/components/layout/page-container';
 import { toast } from 'sonner';
 
+// --- DnD Imports ---
+import {
+  DndContext,
+  closestCenter,
+  useSensors,
+  useSensor,
+  MouseSensor,
+  TouchSensor,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+// -------------------
+
+// --- 1. Interfaces (omitted for brevity, assume unchanged) ---
 interface ExamData {
-  id: string; // Changed type to string to be consistent with UUID
+  id: string; // The primary key (UUID) used for DND
   uuid: string;
+  views?: number;
+  sort_order: number;
   data: {
     Name?: string;
     Category?: string;
     'Exam Code'?: string;
     'Exam Type'?: string;
-    'Application Period'?: string;
     'Official Website'?: string;
+    'Application Period'?: string;
     'Organizing Body'?: string;
-    'Exam Dates'?: string;
-    Eligibility?: string;
-    'Mode of Exam'?: string;
-    Fee?: string;
-    Seats?: string;
-    'State/Region'?: string;
+    // ... other properties
   };
-  views?: number;
 }
 
-interface CollegeData {
-  id: string; // Changed type to string to be consistent with UUID
-  uuid: string;
-  data: {
-    'InstituteName'?: string;
-    'Website'?: string;
-    'NIRF 2023'?: number;
-    'S.No'?: number;
-    'Establishment'?: number;
-    'Tier'?: string;
-    'B.Tech Seats'?: number;
-    'B.Tech Programmes'?: string[];
-  };
-  views?: number;
-}
+type AllExamData = ExamData; 
 
 const API_PORT = 8000;
 
+// --- 2. Sortable Row Component (omitted for brevity, assume unchanged) ---
+function SortableRow({ item }: { item: AllExamData }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition, 
+    zIndex: isDragging ? 50 : 1, 
+    opacity: isDragging ? 0.9 : 1, 
+    position: 'relative',
+    willChange: 'transform',
+  };
+
+  const truncateText = (
+    text: string | number | undefined,
+    maxLength: number = 30
+  ) => {
+    if (!text) return '';
+    const textStr = String(text);
+    return textStr.length > maxLength
+      ? textStr.substring(0, maxLength) + '...'
+      : textStr;
+  };
+  
+  const router = useRouter();
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  
+  const handleDelete = async (id: string) => {
+    setDeleteLoading(id);
+    try {
+      const endpoint = 'exams';
+      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/${endpoint}/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete');
+      }
+
+      toast.success('Exam deleted successfully');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete. Please try again.');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    router.push(`/admin/exams/edit/${id}`);
+  };
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      key={item.id}
+      className={`hover:bg-muted/50 ${isDragging ? 'shadow-2xl bg-primary/10' : ''}`} 
+    >
+      {/* Drag Handle Column */}
+      <TableCell className="p-3 w-4 cursor-grab" {...listeners} {...attributes}>
+        <IconGripVertical size={16} className="text-gray-500 hover:text-primary" />
+      </TableCell>
+      <TableCell className="font-medium p-3">
+        <div className="flex items-center space-x-2">
+          <IconSchool
+            size={16}
+            className="text-gray-500 flex-shrink-0"
+          />
+          <span
+            className="truncate"
+            title={item.data.Name}
+          >
+            {truncateText(item.data.Name, 40)}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="p-3">
+        <span
+          className="truncate block"
+          title={String(item.data['Exam Code'])}
+        >
+          {truncateText(item.data['Exam Code'])}
+        </span>
+      </TableCell>
+      <TableCell className="p-3">
+        <Badge
+          variant="secondary"
+          className="truncate max-w-full"
+        >
+          {truncateText(item.data['Exam Type'], 15)}
+        </Badge>
+      </TableCell>
+      <TableCell className="p-3">
+        <span
+          className="truncate block"
+          title={String(item.data['Application Period'])}
+        >
+          {truncateText(item.data['Application Period'])}
+        </span>
+      </TableCell>
+      <TableCell className="p-3">
+        <span
+          className="truncate block"
+          title={String(item.data['Organizing Body'])}
+        >
+          {truncateText(item.data['Organizing Body'], 20)}
+        </span>
+      </TableCell>
+      <TableCell className="p-3">
+        {item.data['Official Website'] && (
+          <a
+            href={item.data['Official Website']}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline flex items-center space-x-1"
+          >
+            <IconWorld size={16} />
+            <span>Link</span>
+          </a>
+        )}
+      </TableCell>
+      <TableCell className="p-3">
+        {item.views ? item.views.toLocaleString() : 'N/A'}
+      </TableCell>
+      <TableCell className="text-right p-3">
+        <div className="flex justify-end space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleEdit(item.id)}
+          >
+            <IconPencil size={14} />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-500 hover:text-red-700"
+                disabled={deleteLoading === item.id}
+              >
+                <IconTrash size={14} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the
+                  exam and remove all associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => handleDelete(item.id)}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// --- 3. Refactored Main Component ---
 export default function ExamPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [examTypeFilter, setExamTypeFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // ✨ CHANGE 1: Set default rows to 50
+  const [rowsPerPage, setRowsPerPage] = useState(50); 
   const [customRows, setCustomRows] = useState('');
-  const [allExams, setAllExams] = useState<ExamData[]>([]);
-  const [collegeExams, setCollegeExams] = useState<CollegeData[]>([]);
+  const [allData, setAllData] = useState<AllExamData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5, 
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
 
   const fetchExams = async () => {
     setLoading(true);
     setError(null);
     try {
-      const examsPromise = fetch(`https://josaa-admin-backend-1.onrender.com/exams`).then(
-        (res) => {
-          if (!res.ok) throw new Error('Failed to fetch general exams');
-          return res.json();
-        }
+      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/exams`);
+
+      if (!response.ok) throw new Error('Failed to fetch general exams');
+      
+      const examsResult = await response.json();
+      
+      const formattedExams: ExamData[] = examsResult.data.map((item: any, index: number) => ({
+        ...item,
+        views: item.views || 0,
+        sort_order: item.sort_order ? Number(item.sort_order) : index + 1, 
+      }));
+      
+      const sortedData = formattedExams.sort(
+          (a, b) => a.sort_order - b.sort_order
       );
-      const collegeExamsPromise = fetch(
-        `https://josaa-admin-backend-1.onrender.com/college-exams`
-      ).then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch college exams');
-        return res.json();
-      });
+      
+      setAllData(sortedData);
 
-      const [examsResult, collegeExamsResult] = await Promise.all([
-        examsPromise,
-        collegeExamsPromise,
-      ]);
-
-      const formattedExams = examsResult.data.map((item: any) => ({
-        ...item,
-        views: item.views || 0,
-      }));
-      setAllExams(formattedExams);
-
-      const formattedCollegeExams = collegeExamsResult.data.map((item: any) => ({
-        ...item,
-        views: item.views || 0,
-      }));
-      setCollegeExams(formattedCollegeExams);
     } catch (err: any) {
       console.error(err);
       setError(
@@ -150,40 +333,49 @@ export default function ExamPage() {
     }
   };
 
-  const handleDelete = async (id: string, isCollegeExam: boolean) => {
-    setDeleteLoading(id);
+  const updateSortOrder = async (newOrder: AllExamData[]) => {
+    const generalExamsUpdate = newOrder
+        .map((item, index) => ({ id: item.id, sort_order: index + 1 }));
+        
     try {
-      const endpoint = isCollegeExam ? 'college-exams' : 'exams';
-      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/${endpoint}/${id}`, {
-        method: 'DELETE',
-      });
+        const response = await fetch(`https://josaa-admin-backend-1.onrender.com/update-exam-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                general: generalExamsUpdate,
+                college: [], 
+            }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to update sort order on server');
+        }
 
-      toast.success(`${isCollegeExam ? 'College exam' : 'Exam'} deleted successfully`);
-      await fetchExams(); // Refresh the data
+        toast.success('Table order updated successfully!');
     } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete. Please try again.');
-    } finally {
-      setDeleteLoading(null);
+        console.error('Order update error:', error);
+        toast.error('Failed to save new order. Please try again.');
+        fetchExams();
     }
   };
 
-  const handleEdit = (id: string, isCollegeExam: boolean) => {
-    const editPath = isCollegeExam 
-      ? `/admin/exams/edit/college/${id}` 
-      : `/admin/exams/edit/${id}`;
-    router.push(editPath);
-  };
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-  const handleView = (id: string, isCollegeExam: boolean) => {
-    const viewPath = isCollegeExam 
-      ? `/admin/exams/view/college/${id}` 
-      : `/admin/exams/view/${id}`;
-    router.push(viewPath);
+    if (active.id !== over?.id) {
+      const oldIndex = allData.findIndex((item) => item.id === active.id);
+      const newIndex = allData.findIndex((item) => item.id === over?.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(allData, oldIndex, newIndex).map(
+            (item, index) => ({ ...item, sort_order: index + 1 })
+        );
+        setAllData(newOrder);
+        await updateSortOrder(newOrder);
+      }
+    }
   };
 
   useEffect(() => {
@@ -198,25 +390,75 @@ export default function ExamPage() {
     }
   };
 
-  const nationalLevelCount = allExams.filter(
+  const getFilteredData = useMemo(() => {
+    let dataToFilter: AllExamData[] = [...allData];
+
+    if (examTypeFilter === 'National Level') {
+      dataToFilter = dataToFilter.filter(
+        (exam) =>
+          exam.data['Exam Type'] === 'National Level' ||
+          exam.data['Exam Type']?.includes('National')
+      );
+    } else if (examTypeFilter === 'State Level') {
+      dataToFilter = dataToFilter.filter(
+        (exam) =>
+          exam.data['Exam Type'] === 'State Level' ||
+          exam.data['Exam Type']?.includes('State')
+      );
+    }
+
+    const filteredBySearch = dataToFilter.filter((item) => {
+      if (!searchQuery) return true;
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      
+      const searchableData = [
+          item.data.Name, 
+          item.data['Exam Code'],
+          item.data['Exam Type'],
+          item.data['Organizing Body'],
+      ].map((value) => String(value ?? '').toLowerCase())
+       .join(' ');
+      
+      return searchableData.includes(lowerCaseQuery);
+    });
+
+    return filteredBySearch.sort((a, b) => a.sort_order - b.sort_order);
+
+  }, [allData, examTypeFilter, searchQuery]);
+
+
+  const filteredData = getFilteredData;
+  const indexOfLastItem = currentPage * rowsPerPage;
+  const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItemIds = currentItems.map(item => item.id);
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+  const handleCategoryClick = (filter: string) => {
+    setExamTypeFilter(filter);
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
+  
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  
+  const nationalLevelCount = allData.filter(
     (exam) =>
       exam.data['Exam Type'] === 'National Level' ||
       exam.data['Exam Type']?.includes('National')
   ).length;
 
-  const stateLevelCount = allExams.filter(
+  const stateLevelCount = allData.filter(
     (exam) =>
       exam.data['Exam Type'] === 'State Level' ||
       exam.data['Exam Type']?.includes('State')
   ).length;
 
-  const institutionalLevelCount = collegeExams.length;
-
   const categoryCards = [
     {
       name: 'All Exams',
       icon: IconBuilding,
-      count: allExams.length + collegeExams.length,
+      count: allData.length,
       filter: 'All',
     },
     {
@@ -231,79 +473,7 @@ export default function ExamPage() {
       count: stateLevelCount,
       filter: 'State Level',
     },
-    {
-      name: 'Institutional Level Exams',
-      icon: IconSchool,
-      count: institutionalLevelCount,
-      filter: 'Institutional Level',
-    },
   ];
-
-  const getFilteredData = () => {
-    let dataToFilter: (ExamData | CollegeData)[] = [];
-
-    if (examTypeFilter === 'All') {
-      dataToFilter = [...allExams, ...collegeExams];
-    } else if (examTypeFilter === 'National Level') {
-      dataToFilter = allExams.filter(
-        (exam) =>
-          exam.data['Exam Type'] === 'National Level' ||
-          exam.data['Exam Type']?.includes('National')
-      );
-    } else if (examTypeFilter === 'State Level') {
-      dataToFilter = allExams.filter(
-        (exam) =>
-          exam.data['Exam Type'] === 'State Level' ||
-          exam.data['Exam Type']?.includes('State')
-      );
-    } else if (examTypeFilter === 'Institutional Level') {
-      dataToFilter = collegeExams;
-    } else {
-      dataToFilter = allExams.filter(
-        (exam) => exam.data['Exam Type'] === examTypeFilter
-      );
-    }
-
-    const filteredBySearch = dataToFilter.filter((item) => {
-      if (!searchQuery) return true;
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      const searchableValues = Object.values(item.data).map((value) =>
-        String(value).toLowerCase()
-      );
-      return searchableValues.some((value) => value.includes(lowerCaseQuery));
-    });
-
-    return filteredBySearch;
-  };
-
-  const filteredData = getFilteredData();
-  const indexOfLastItem = currentPage * rowsPerPage;
-  const indexOfFirstItem = indexOfLastItem - rowsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-
-  const handleCategoryClick = (filter: string) => {
-    setExamTypeFilter(filter);
-    setSearchQuery('');
-    setCurrentPage(1);
-  };
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-  const truncateText = (
-    text: string | number | undefined,
-    maxLength: number = 30
-  ) => {
-    if (!text) return '';
-    const textStr = String(text);
-    return textStr.length > maxLength
-      ? textStr.substring(0, maxLength) + '...'
-      : textStr;
-  };
-
-  const isCollegeExam = (item: ExamData | CollegeData): item is CollegeData => {
-    return 'InstituteName' in item.data;
-  };
 
   return (
     <PageContainer>
@@ -317,14 +487,7 @@ export default function ExamPage() {
               <div className="flex gap-2">
                 <Button onClick={() => router.push('/admin/exams/add')}>
                   <IconPlus size={16} className="mr-2" />
-                  Add General Exam
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push('/admin/exams/add/college')}
-                >
-                  <IconPlus size={16} className="mr-2" />
-                  Add College Exam
+                  Add New Exam
                 </Button>
               </div>
             </div>
@@ -364,6 +527,9 @@ export default function ExamPage() {
                   </Card>
                 );
               })}
+              <Card className="hidden md:block opacity-0 pointer-events-none">
+                <CardHeader className="pb-3"><CardTitle></CardTitle></CardHeader>
+              </Card>
             </div>
 
             {/* Loading & Error */}
@@ -409,7 +575,8 @@ export default function ExamPage() {
                 <div className="w-full border rounded-lg overflow-x-auto">
                   <Table className="w-full table-fixed">
                     <colgroup>
-                      <col style={{ width: '25%' }} />
+                      <col style={{ width: '4%' }} /> 
+                      <col style={{ width: '21%' }} />
                       <col style={{ width: '12%' }} />
                       <col style={{ width: '12%' }} />
                       <col style={{ width: '12%' }} />
@@ -420,30 +587,21 @@ export default function ExamPage() {
                     </colgroup>
                     <TableHeader className="bg-muted/50 sticky top-0 z-10">
                       <TableRow>
+                        <TableHead className="font-semibold w-4"></TableHead> 
                         <TableHead className="font-semibold">
-                          {examTypeFilter === 'Institutional Level'
-                            ? 'Institute Name'
-                            : 'Exam Name'}
+                          Exam Name
                         </TableHead>
                         <TableHead className="font-semibold">
-                          {examTypeFilter === 'Institutional Level'
-                            ? 'S.No'
-                            : 'Exam Code'}
+                          Exam Code
                         </TableHead>
                         <TableHead className="font-semibold">
-                          {examTypeFilter === 'Institutional Level'
-                            ? 'Tier'
-                            : 'Exam Type'}
+                          Exam Type
                         </TableHead>
                         <TableHead className="font-semibold">
-                          {examTypeFilter === 'Institutional Level'
-                            ? 'Establishment'
-                            : 'Application Period'}
+                          Application Period
                         </TableHead>
                         <TableHead className="font-semibold">
-                          {examTypeFilter === 'Institutional Level'
-                            ? 'NIRF 2023'
-                            : 'Organizing Body'}
+                          Organizing Body
                         </TableHead>
                         <TableHead className="font-semibold">Website</TableHead>
                         <TableHead className="font-semibold">Views</TableHead>
@@ -452,199 +610,36 @@ export default function ExamPage() {
                         </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {currentItems.length > 0 ? (
-                        currentItems.map((item) => {
-                          const isCollege = isCollegeExam(item);
-                          return (
-                            <TableRow key={item.id} className="hover:bg-muted/50">
-                              <TableCell className="font-medium p-3">
-                                <div className="flex items-center space-x-2">
-                                  <IconSchool
-                                    size={16}
-                                    className="text-gray-500 flex-shrink-0"
-                                  />
-                                  <span
-                                    className="truncate"
-                                    title={
-                                      'Name' in item.data
-                                        ? item.data.Name
-                                        : 'InstituteName' in item.data
-                                        ? item.data.InstituteName
-                                        : ''
-                                    }
-                                  >
-                                    {truncateText(
-                                      'Name' in item.data
-                                        ? item.data.Name
-                                        : 'InstituteName' in item.data
-                                        ? item.data.InstituteName
-                                        : '',
-                                      40
-                                    )}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="p-3">
-                                <span
-                                  className="truncate block"
-                                  title={String(
-                                    'Exam Code' in item.data
-                                      ? item.data['Exam Code']
-                                      : 'S.No' in item.data
-                                      ? item.data['S.No']
-                                      : ''
-                                  )}
-                                >
-                                  {truncateText(
-                                    'Exam Code' in item.data
-                                      ? item.data['Exam Code']
-                                      : 'S.No' in item.data
-                                      ? item.data['S.No']
-                                      : ''
-                                  )}
-                                </span>
-                              </TableCell>
-                              <TableCell className="p-3">
-                                <Badge
-                                  variant="secondary"
-                                  className="truncate max-w-full"
-                                >
-                                  {truncateText(
-                                    'Exam Type' in item.data
-                                      ? item.data['Exam Type']
-                                      : 'Tier' in item.data
-                                      ? (item as CollegeData).data['Tier']
-                                      : '',
-                                    15
-                                  )}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="p-3">
-                                <span
-                                  className="truncate block"
-                                  title={String(
-                                    'Application Period' in item.data
-                                      ? item.data['Application Period']
-                                      : 'Establishment' in item.data
-                                      ? (item as CollegeData).data['Establishment']
-                                      : ''
-                                  )}
-                                >
-                                  {truncateText(
-                                    'Application Period' in item.data
-                                      ? item.data['Application Period']
-                                      : 'Establishment' in item.data
-                                      ? (item as CollegeData).data['Establishment']
-                                      : ''
-                                  )}
-                                </span>
-                              </TableCell>
-                              <TableCell className="p-3">
-                                <span
-                                  className="truncate block"
-                                  title={String(
-                                    'Organizing Body' in item.data
-                                      ? item.data['Organizing Body']
-                                      : 'NIRF 2023' in item.data
-                                      ? (item as CollegeData).data['NIRF 2023']
-                                      : ''
-                                  )}
-                                >
-                                  {truncateText(
-                                    'Organizing Body' in item.data
-                                      ? item.data['Organizing Body']
-                                      : 'NIRF 2023' in item.data
-                                      ? (item as CollegeData).data['NIRF 2023']
-                                      : '',
-                                    20
-                                  )}
-                                </span>
-                              </TableCell>
-                              <TableCell className="p-3">
-                                {(('Official Website' in item.data && item.data['Official Website']) ||
-                                  ('Website' in item.data && item.data['Website'])) && (
-                                  <a
-                                    href={
-                                      'Official Website' in item.data
-                                        ? item.data['Official Website']
-                                        : 'Website' in item.data
-                                        ? (item as CollegeData).data['Website']
-                                        : '#'
-                                    }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-500 hover:underline flex items-center space-x-1"
-                                  >
-                                    <IconWorld size={16} />
-                                    <span>Link</span>
-                                  </a>
-                                )}
-                              </TableCell>
-                              <TableCell className="p-3">
-                                {item.views ? item.views.toLocaleString() : 'N/A'}
-                              </TableCell>
-                              <TableCell className="text-right p-3">
-                                <div className="flex justify-end space-x-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleView(item.id, isCollege)}
-                                  >
-                                    <IconEye size={14} />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleEdit(item.id, isCollege)}
-                                  >
-                                    <IconPencil size={14} />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-red-500 hover:text-red-700"
-                                        disabled={deleteLoading === item.id}
-                                      >
-                                        <IconTrash size={14} />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This action cannot be undone. This will permanently delete the{' '}
-                                          {isCollege ? 'college exam' : 'exam'} and remove all associated data.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDelete(item.id, isCollege)}
-                                          className="bg-red-500 hover:bg-red-600"
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
+
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext 
+                          items={currentItemIds} 
+                          strategy={verticalListSortingStrategy}
+                      >
+                        <TableBody>
+                          {currentItems.length > 0 ? (
+                            currentItems.map((item) => {
+                              return (
+                                <SortableRow
+                                  key={item.id}
+                                  item={item}
+                                />
+                              );
+                            })
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={9} className="h-24 text-center">
+                                No exams found.
                               </TableCell>
                             </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={8} className="h-24 text-center">
-                            No exams found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
+                          )}
+                        </TableBody>
+                      </SortableContext>
+                    </DndContext>
                   </Table>
                 </div>
 
@@ -663,12 +658,13 @@ export default function ExamPage() {
                         <SelectValue placeholder={rowsPerPage} />
                       </SelectTrigger>
                       <SelectContent>
+                        {/* ✨ CHANGE 2: Ensure 50 is a default selectable item */}
                         <SelectItem value="5">5</SelectItem>
                         <SelectItem value="10">10</SelectItem>
                         <SelectItem value="15">15</SelectItem>
                         <SelectItem value="20">20</SelectItem>
                         <SelectItem value="30">30</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="50">50</SelectItem> 
                       </SelectContent>
                     </Select>
                     <span>or custom:</span>
