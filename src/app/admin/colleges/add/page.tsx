@@ -750,10 +750,36 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
         {Object.entries(data).map(([key, value]) => (
           <div key={key} className="space-y-2">
             <Label className="capitalize font-semibold">{key.replace(/_/g, ' ')}</Label>
-            <RichEditor
-              data={value}
-              onChange={(newValue) => onChange({ ...data, [key]: newValue })}
-            />
+            {key === 'Type' ? (
+              <Select value={String(value)} onValueChange={(newValue) => onChange({ ...data, [key]: newValue })}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IIT">IIT</SelectItem>
+                  <SelectItem value="IIIT">IIIT</SelectItem>
+                  <SelectItem value="NIT">NIT</SelectItem>
+                  <SelectItem value="GFTS">GFTS</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : key === 'Tier' ? (
+              <Select value={String(value)} onValueChange={(newValue) => onChange({ ...data, [key]: newValue })}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select Tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="I">I</SelectItem>
+                  <SelectItem value="II">II</SelectItem>
+                  <SelectItem value="III">III</SelectItem>
+                  <SelectItem value="IV">IV</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <RichEditor
+                data={value}
+                onChange={(newValue) => onChange({ ...data, [key]: newValue })}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -1339,7 +1365,7 @@ export default function AddCollegePage() {
 
     setIsAdding(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/add-college`, {
+      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/api/add-college`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
