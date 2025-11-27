@@ -47,11 +47,31 @@ import {
 import {
   IconLoader, IconCheck, IconX, IconEdit, IconSearch, IconReplace,
   IconPlus, IconTrash, IconTable, IconList, IconAlignLeft,
-  IconFolder, IconDotsVertical, IconArrowUp, IconArrowDown
+  IconFolder, IconDotsVertical, IconArrowUp, IconArrowDown,
+  IconGripVertical
 } from '@tabler/icons-react';
 import {
   MaximizeIcon, MinimizeIcon, BarChart2
 } from 'lucide-react';
+
+// --- DnD Kit Imports ---
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // --- Types ---
 
@@ -547,7 +567,88 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
 
 // --- NIRF LOGIC END ---
 
-// --- Editable Table Component ---
+// --- SORTABLE ROW COMPONENT ---
+
+interface SortableRowProps {
+  row: any;
+  rowIndex: number;
+  id: string; // DnD required ID
+  columns: string[];
+  updateCell: (rowIndex: number, colKey: string, value: string) => void;
+  deleteRow: (rowIndex: number) => void;
+  addRow: (index: number) => void;
+}
+
+const SortableRow = ({ row, rowIndex, id, columns, updateCell, deleteRow, addRow }: SortableRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1, // Ensure dragged item is on top
+    position: isDragging ? 'relative' as const : undefined,
+    opacity: isDragging ? 0.6 : 1,
+    background: isDragging ? 'hsl(var(--muted))' : undefined
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      {/* Drag Handle Column */}
+      <TableCell className="w-[50px] whitespace-nowrap bg-muted/20 p-2 text-center cursor-grab touch-none" >
+        <div {...attributes} {...listeners} className="flex justify-center items-center h-full text-muted-foreground hover:text-foreground">
+           <IconGripVertical className="h-4 w-4" />
+        </div>
+      </TableCell>
+      
+      {/* Index Number */}
+      <TableCell className="text-muted-foreground text-xs whitespace-nowrap w-[40px]">
+        {rowIndex + 1}
+      </TableCell>
+
+      {/* Data Columns */}
+      {columns.map(col => (
+        <TableCell key={`${rowIndex}-${col}`} className="whitespace-nowrap p-2">
+          <Input
+            value={typeof row[col] === 'object' ? JSON.stringify(row[col]) : row[col]}
+            onChange={(e) => updateCell(rowIndex, col, e.target.value)}
+            className="h-9 min-w-[180px]"
+          />
+        </TableCell>
+      ))}
+
+      {/* Actions */}
+      <TableCell className="whitespace-nowrap">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <IconDotsVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => addRow(rowIndex)}>
+              <IconArrowUp className="mr-2 h-4 w-4" /> Insert Above
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => addRow(rowIndex + 1)}>
+              <IconArrowDown className="mr-2 h-4 w-4" /> Insert Below
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => deleteRow(rowIndex)} className="text-red-600">
+              <IconTrash className="mr-2 h-4 w-4" /> Delete Row
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+// --- Editable Table Component (Updated with DnD) ---
 
 const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: any[]) => void }) => {
   if (!Array.isArray(data) || data.length === 0) {
@@ -580,7 +681,38 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
     );
   }
 
+  // --- DnD Setup ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Prevent accidental drags
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const columns = Object.keys(data[0]);
+
+  // Create stable IDs for dnd-kit. Since we don't have unique IDs in data, 
+  // we use index string mapping. Note: If rows are added/deleted, simple index mapping needs care.
+  // Ideally, your data should have IDs. Here we use `row-${index}` which is fine for reordering array.
+  const items = useMemo(() => data.map((_, index) => `row-${index}`), [data]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Find the indices
+      const oldIndex = items.indexOf(active.id as string);
+      const newIndex = items.indexOf(over.id as string);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onChange(arrayMove(data, oldIndex, newIndex));
+      }
+    }
+  };
 
   const updateCell = (rowIndex: number, colKey: string, value: string) => {
     const newData = [...data];
@@ -632,60 +764,50 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
       </div>
 
       <div className="w-full max-w-[85vw] md:max-w-[calc(100vw-250px)] overflow-x-auto rounded-lg border shadow-sm">
-        <Table className="min-w-full w-max">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px] whitespace-nowrap bg-muted/50">#</TableHead>
-              {columns.map(col => (
-                <TableHead key={col} className="whitespace-nowrap min-w-[200px] bg-muted/50">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>{col}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteColumn(col)}>
-                      <IconTrash className="h-3 w-3 text-red-500" />
-                    </Button>
-                  </div>
-                </TableHead>
-              ))}
-              <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{rowIndex + 1}</TableCell>
+        <DndContext 
+          sensors={sensors} 
+          collisionDetection={closestCenter} 
+          onDragEnd={handleDragEnd}
+        >
+          <Table className="min-w-full w-max">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead> {/* Drag Handle Header */}
+                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50">#</TableHead>
                 {columns.map(col => (
-                  <TableCell key={`${rowIndex}-${col}`} className="whitespace-nowrap p-2">
-                    <Input
-                      value={typeof row[col] === 'object' ? JSON.stringify(row[col]) : row[col]}
-                      onChange={(e) => updateCell(rowIndex, col, e.target.value)}
-                      className="h-9 min-w-[180px]"
-                    />
-                  </TableCell>
-                ))}
-                <TableCell className="whitespace-nowrap">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <IconDotsVertical className="h-4 w-4" />
+                  <TableHead key={col} className="whitespace-nowrap min-w-[200px] bg-muted/50">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{col}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteColumn(col)}>
+                        <IconTrash className="h-3 w-3 text-red-500" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => addRow(rowIndex)}>
-                        <IconArrowUp className="mr-2 h-4 w-4" /> Insert Above
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addRow(rowIndex + 1)}>
-                        <IconArrowDown className="mr-2 h-4 w-4" /> Insert Below
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deleteRow(rowIndex)} className="text-red-600">
-                        <IconTrash className="mr-2 h-4 w-4" /> Delete Row
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                    </div>
+                  </TableHead>
+                ))}
+                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              <SortableContext 
+                items={items} 
+                strategy={verticalListSortingStrategy}
+              >
+                {data.map((row, rowIndex) => (
+                  <SortableRow
+                    key={`row-${rowIndex}`} // Using index-based key for reordering
+                    id={`row-${rowIndex}`}
+                    row={row}
+                    rowIndex={rowIndex}
+                    columns={columns}
+                    updateCell={updateCell}
+                    deleteRow={deleteRow}
+                    addRow={addRow}
+                  />
+                ))}
+              </SortableContext>
+            </TableBody>
+          </Table>
+        </DndContext>
       </div>
     </div>
   );
