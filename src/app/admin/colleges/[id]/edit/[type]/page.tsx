@@ -48,7 +48,7 @@ import {
   IconLoader, IconCheck, IconX, IconEdit, IconSearch, IconReplace,
   IconPlus, IconTrash, IconTable, IconList, IconAlignLeft,
   IconFolder, IconDotsVertical, IconArrowUp, IconArrowDown,
-  IconGripVertical
+  IconGripVertical, IconUpload, IconPencil, IconFilter
 } from '@tabler/icons-react';
 import {
   MaximizeIcon, MinimizeIcon, BarChart2
@@ -100,6 +100,30 @@ interface BackendResponse {
   basic_data: CollegeData;
 }
 
+// --- File Helper Function ---
+const uploadFile = async (file: File, filterName?: string): Promise<any[]> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Construct URL with filter if present
+  // CRITICAL FIX: Added .trim() to remove leading spaces that cause filter mismatches
+  let url = 'https://josaa-admin-backend-1.onrender.com/api/convert-csv';
+  if (filterName && filterName.trim()) {
+    url += `?filter_name=${encodeURIComponent(filterName.trim())}`;
+  }
+
+  // Using the localhost endpoint defined in your python backend
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to upload file");
+  }
+  return await res.json();
+};
+
 // --- NIRF LOGIC START ---
 
 interface Abbreviation {
@@ -128,7 +152,6 @@ const nirfAbbreviations: Abbreviation[] = [
   { Abbreviation: "PR", "Full Form": "Public Perception", "User-friendly Explanation": "A measure of the college's public image and brand reputation." },
 ];
 
-// Helper to reliably get data regardless of casing (e.g., 'ss' vs 'SS')
 const getCaseInsensitiveData = (row: any, key: string) => {
   if (!row) return '';
   if (row[key] !== undefined && row[key] !== null) return row[key];
@@ -161,7 +184,7 @@ const FullScreenNirfTable: React.FC<{
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -172,7 +195,7 @@ const FullScreenNirfTable: React.FC<{
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>Graph</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -249,17 +272,6 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const analyticsRef = useRef<HTMLDivElement>(null);
 
-  const handleScrollToAnalytics = () => {
-    if (analyticsRef.current) {
-      const elementPosition = analyticsRef.current.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - SCROLL_OFFSET_TOP;
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
-    }
-  };
-
   const toggleFullScreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -325,7 +337,7 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View PDF</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -336,7 +348,7 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View Graph</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -359,7 +371,6 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold text-foreground">NIRF Rankings</h2>
           <div className="flex items-center space-x-4">
-
             <button onClick={toggleFullScreen} className="flex items-center space-x-2 text-primary hover:text-primary-dark">
               {isFullScreen ? <MinimizeIcon size={18} /> : <MaximizeIcon size={18} />}
               <span>{isFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
@@ -425,18 +436,15 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
 // --- NIRF EDITOR COMPONENT ---
 
 const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) => void }) => {
-  // Determine if we are editing 'nirf_data_from_csv' wrapper or direct object
   const hasCsvWrapper = data && typeof data === 'object' && 'nirf_data_from_csv' in data;
   const rawData = hasCsvWrapper ? data.nirf_data_from_csv : data;
 
-  // Convert object { "2023": {...}, "2022": {...} } to Array for editing
-  // Initialize state only once based on props
   const [rows, setRows] = useState<any[]>(() => {
     if (!rawData || typeof rawData !== 'object') return [];
     return Object.entries(rawData).map(([year, values]: [string, any]) => ({
       Year: year,
       ...values
-    })).sort((a, b) => Number(b.Year) - Number(a.Year)); // Descending years
+    })).sort((a, b) => Number(b.Year) - Number(a.Year));
   });
 
   const groupedHeaders = [
@@ -450,7 +458,6 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     { title: "Additional Info", keys: ["PDF", "Image"] },
   ];
 
-  // Reconstruct object structure whenever rows change and notify parent
   const updateParent = (newRows: any[]) => {
     const newObject: any = {};
     newRows.forEach(row => {
@@ -536,7 +543,7 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
                 </td>
                 {groupedHeaders.flatMap(group => group.keys).map((key, cIndex) => {
                   const isLastKeyInGroup = groupedHeaders.some((g, gIndex) => gIndex < groupedHeaders.length - 1 && g.keys[g.keys.length - 1] === key);
-                  // Find the value using case insensitive helper logic for initial render, but bind to specific key
+                  // Find the value using case insensitive helper logic for initial render
                   const val = getCaseInsensitiveData(row, key);
 
                   return (
@@ -603,10 +610,10 @@ const SortableRow = ({ row, rowIndex, id, columns, updateCell, deleteRow, addRow
       {/* Drag Handle Column */}
       <TableCell className="w-[50px] whitespace-nowrap bg-muted/20 p-2 text-center cursor-grab touch-none" >
         <div {...attributes} {...listeners} className="flex justify-center items-center h-full text-muted-foreground hover:text-foreground">
-           <IconGripVertical className="h-4 w-4" />
+          <IconGripVertical className="h-4 w-4" />
         </div>
       </TableCell>
-      
+
       {/* Index Number */}
       <TableCell className="text-muted-foreground text-xs whitespace-nowrap w-[40px]">
         {rowIndex + 1}
@@ -695,9 +702,6 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
 
   const columns = Object.keys(data[0]);
 
-  // Create stable IDs for dnd-kit. Since we don't have unique IDs in data, 
-  // we use index string mapping. Note: If rows are added/deleted, simple index mapping needs care.
-  // Ideally, your data should have IDs. Here we use `row-${index}` which is fine for reordering array.
   const items = useMemo(() => data.map((_, index) => `row-${index}`), [data]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -764,9 +768,9 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
       </div>
 
       <div className="w-full max-w-[85vw] md:max-w-[calc(100vw-250px)] overflow-x-auto rounded-lg border shadow-sm">
-        <DndContext 
-          sensors={sensors} 
-          collisionDetection={closestCenter} 
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
           <Table className="min-w-full w-max">
@@ -788,8 +792,8 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
               </TableRow>
             </TableHeader>
             <TableBody>
-              <SortableContext 
-                items={items} 
+              <SortableContext
+                items={items}
                 strategy={verticalListSortingStrategy}
               >
                 {data.map((row, rowIndex) => (
@@ -816,6 +820,26 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
 // --- Rich Editor Component ---
 
 const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) => void }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // This allows CSV upload inside existing tables, preserving the existing behavior
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const jsonData = await uploadFile(file);
+      if (confirm(`This will replace the current content with data from ${file.name}. Continue?`)) {
+        onChange(jsonData);
+      }
+    } catch (err: any) {
+      alert(`Error processing file: ${err.message}`);
+      console.error(err);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (typeof data === 'string' || typeof data === 'number' || data === null) {
     return (
       <Textarea
@@ -830,7 +854,22 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     const isTable = data.length > 0 && typeof data[0] === 'object' && data[0] !== null;
 
     if (isTable) {
-      return <EditableTable data={data} onChange={onChange} />;
+      return (
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <input type="file" accept=".csv, .xlsx" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-green-600 border-green-200 hover:bg-green-50"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <IconUpload className="h-4 w-4 mr-2" /> Replace with CSV/XLSX
+            </Button>
+          </div>
+          <EditableTable data={data} onChange={onChange} />
+        </div>
+      );
     }
 
     return (
@@ -1019,9 +1058,78 @@ const RenderDisplay = ({ data, highlight }: { data: any; highlight: string }) =>
   return null;
 };
 
-// --- Section Creator & EditableSection ---
+// --- Section Creator & CsvSectionUploader ---
 
-const SectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void }) => {
+// UPDATED COMPONENT: Includes Filter Logic
+const CsvSectionUploader = ({ onUpload, defaultFilter, tabName }: { onUpload: (key: string, data: any) => void, defaultFilter?: string, tabName: string }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filterName, setFilterName] = useState(defaultFilter || "");
+
+  // Update local state if prop changes
+  useEffect(() => {
+    if (defaultFilter) setFilterName(defaultFilter);
+  }, [defaultFilter]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // 1. Upload to backend with Filter
+      const jsonData = await uploadFile(file, filterName);
+
+      // 2. Prompt for a section title (the key)
+      const defaultTitle = file.name.replace(/\.(csv|xlsx?)$/i, '').replace(/\s+/g, '_').toLowerCase();
+      const title = prompt("Enter a Title for this new Table Section:", defaultTitle);
+
+      if (title && title.trim()) {
+        // Prefix key with tab name to keep it scoped
+        const scopedKey = `${tabName}_${title.trim().toLowerCase().replace(/\s+/g, '_')}`;
+        onUpload(scopedKey, jsonData);
+      }
+    } catch (err: any) {
+      alert(`Error uploading file: ${err.message}`);
+      console.error(err);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="mb-6 p-4 border-2 border-dashed border-primary/20 rounded-lg bg-primary/5 flex flex-col items-center justify-center gap-4">
+      <div className="text-center">
+        <h3 className="font-semibold text-primary">Import Data Table</h3>
+        <p className="text-sm text-muted-foreground">Upload a CSV or XLSX to create a new section.</p>
+      </div>
+
+      <div className="flex w-full max-w-sm items-center space-x-2">
+        <Input
+          type="text"
+          placeholder="Filter by Institute Name (Optional)"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+          className="bg-background"
+        />
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          className="gap-2 shrink-0"
+        >
+          <IconUpload className="h-4 w-4" /> Upload
+        </Button>
+      </div>
+
+      <input
+        type="file"
+        accept=".csv, .xlsx"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+    </div>
+  );
+};
+
+const SectionCreator = ({ onAdd, tabName }: { onAdd: (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void, tabName: string }) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<'text' | 'list' | 'table' | 'group'>("text");
@@ -1050,7 +1158,9 @@ const SectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | 'list' 
       return;
     }
 
-    onAdd(title.trim().toLowerCase().replace(/\s+/g, '_'), type, parsedContent);
+    // Prefix with tab name for manual creation too
+    const scopedKey = `${tabName}_${title.trim().toLowerCase().replace(/\s+/g, '_')}`;
+    onAdd(scopedKey, type, parsedContent);
     setOpen(false);
     setTitle("");
     setType("text");
@@ -1061,7 +1171,7 @@ const SectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | 'list' 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full border-dashed">
-          <IconPlus className="h-4 w-4 mr-2" /> Add New Section
+          <IconPlus className="h-4 w-4 mr-2" /> Add New Section Manually
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
@@ -1112,7 +1222,8 @@ const EditableSection = ({
   onEdit,
   onSave,
   onCancel,
-  onDelete, // New prop
+  onDelete,
+  onRename, // New prop for renaming title
   children,
   editComponent
 }: {
@@ -1121,14 +1232,31 @@ const EditableSection = ({
   onEdit: () => void,
   onSave: () => void,
   onCancel: () => void,
-  onDelete?: () => void, // New prop type
+  onDelete?: () => void,
+  onRename?: (newTitle: string) => void,
   children: React.ReactNode,
   editComponent: React.ReactNode
 }) => {
+  const handleRenameClick = () => {
+    if (onRename && title) {
+      const newTitle = prompt("Rename Section Title:", title);
+      if (newTitle && newTitle !== title) {
+        onRename(newTitle.trim().replace(/\s+/g, '_'));
+      }
+    }
+  };
+
   return (
     <div className="relative group mb-6 w-full max-w-full overflow-hidden">
       <div className="flex items-center justify-between mb-2">
-        {title && <h3 className="text-lg font-semibold capitalize">{title.replace(/_/g, ' ')}</h3>}
+        <div className="flex items-center gap-2">
+          {title && <h3 className="text-lg font-semibold capitalize">{title.replace(/_/g, ' ')}</h3>}
+          {onRename && !isEditing && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" onClick={handleRenameClick} title="Rename Section">
+              <IconPencil className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
         {!isEditing ? (
           <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="sm" onClick={onEdit}>
@@ -1195,6 +1323,7 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
         const res = await fetch(`https://josaa-admin-backend-1.onrender.com/api/college/${resolvedParams.id}/${resolvedParams.type}`);
         if (!res.ok) throw new Error("Failed");
         const data: BackendResponse = await res.json();
+        console.log("data added newly", data);
         setFullData(data.full_data);
         setBasicData(data.basic_data);
       } catch (e) {
@@ -1265,8 +1394,42 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
     }
   };
 
+  // Logic to rename a section key (Title)
+  const handleRenameSection = (oldKey: string, newKey: string) => {
+    if (oldKey === newKey) return;
+    setFullData(prev => {
+      if (!prev) return null;
+      if (prev[newKey]) {
+        alert("A section with this name already exists.");
+        return prev;
+      }
+      // Create new object to preserve order or just append? 
+      // To preserve order in JS objects (mostly works), we reconstruct.
+      const entries = Object.entries(prev);
+      const index = entries.findIndex(([k]) => k === oldKey);
+      if (index === -1) return prev;
+
+      entries[index] = [newKey, prev[oldKey]]; // Replace key
+      return Object.fromEntries(entries);
+    });
+  };
+
   const handleAddSection = (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => {
     setFullData(prev => prev ? ({ ...prev, [key]: content }) : prev);
+  };
+
+  // New handler for CSV uploads to place them at the TOP of the data structure
+  const handleCsvSectionAdd = (key: string, data: any) => {
+    setFullData(prev => {
+      if (!prev) return { [key]: data };
+      if (prev[key]) {
+        // If key exists, maybe append a timestamp
+        const newKey = `${key}_${Date.now()}`;
+        return { [newKey]: data, ...prev };
+      }
+      // Prepend new data
+      return { [key]: data, ...prev };
+    });
   };
 
   if (loading || !fullData || !basicData) return <PageContainer><IconLoader className="animate-spin" /></PageContainer>;
@@ -1307,8 +1470,6 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
           onEdit={() => startEditing('basic', basicData)}
           onSave={() => saveEditing('basic')}
           onCancel={() => setEditingSection(null)}
-          // Basic info is usually required, so I haven't added delete here, 
-          // but if you want it, you can add: onDelete={() => alert("Basic Info cannot be deleted")}
           editComponent={<RichEditor data={tempData} onChange={setTempData} />}
         >
           <Card>
@@ -1337,26 +1498,39 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
 
             {['about', 'courses', 'seat_matrix', 'ranking', 'nirf'].map(tab => (
               <TabsContent key={tab} value={tab} className="space-y-4 mt-4 w-full max-w-full">
+
+                {/* --- NEW CSV UPLOADER AT TOP --- */}
+                {/* We pass the College Name as the default filter to make it easy for the admin */}
+                <CsvSectionUploader onUpload={handleCsvSectionAdd} defaultFilter={basicData.Name} tabName={tab} />
+
                 {Object.entries(fullData).map(([key, value]) => {
                   let show = false;
-                  // Hide 'nirf' key from all tabs EXCEPT 'nirf' tab
-                  if (tab === 'about' && (key === 'about' || key === 'banner_section' || !['courses', 'admission', 'seat_matrix', 'ranking', 'nirf'].includes(key))) show = true;
+                  // Standard keys filtering logic
+                  if (tab === 'about' && (key === 'about' || key === 'banner_section')) show = true;
                   if (tab === 'courses' && (key === 'courses' || key === 'admission')) show = true;
                   if (tab === 'seat_matrix' && key === 'seat_matrix') show = true;
                   if (tab === 'ranking' && (key === 'ranking')) show = true; // Removed 'nirf' here
                   if (tab === 'nirf' && key === 'nirf') show = true;
 
+                  // Custom/New sections logic:
+                  // Only show if it starts with current tab name prefix
+                  if (key.startsWith(`${tab}_`)) show = true;
+
                   if (!show) return null;
+
+                  // Display name clean up (remove prefix if it matches current tab)
+                  const displayTitle = key.startsWith(`${tab}_`) ? key.replace(`${tab}_`, '') : key;
 
                   return (
                     <EditableSection
                       key={key}
-                      title={key}
+                      title={displayTitle}
                       isEditing={editingSection === key}
                       onEdit={() => startEditing(key, value)}
                       onSave={() => saveEditing(key)}
                       onCancel={() => setEditingSection(null)}
-                      onDelete={() => handleDeleteSection(key)} // Added delete handler here
+                      onDelete={() => handleDeleteSection(key)}
+                      onRename={(newTitle: string) => handleRenameSection(key, `${tab}_${newTitle}`)} // Pass rename handler with prefix
                       editComponent={key === 'nirf' ? (
                         <NirfEditor data={tempData} onChange={setTempData} />
                       ) : (
@@ -1374,7 +1548,7 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
                 })}
 
                 <Separator className="my-4" />
-                <SectionCreator onAdd={handleAddSection} />
+                <SectionCreator onAdd={handleAddSection} tabName={tab} />
               </TabsContent>
             ))}
           </Tabs>
