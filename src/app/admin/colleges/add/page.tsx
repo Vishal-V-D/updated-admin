@@ -48,7 +48,7 @@ import {
   IconLoader, IconCheck, IconX, IconEdit, IconSearch, IconReplace,
   IconPlus, IconTrash, IconTable, IconList, IconAlignLeft,
   IconFolder, IconDotsVertical, IconArrowUp, IconArrowDown,
-  IconFolderPlus
+  IconFolderPlus, IconUpload, IconFileSpreadsheet
 } from '@tabler/icons-react';
 import {
   MaximizeIcon, MinimizeIcon, BarChart2
@@ -73,6 +73,7 @@ interface FullData {
 }
 
 // --- NIRF LOGIC START ---
+// ... (Keeping your existing NIRF definitions exactly as they were) ...
 
 interface Abbreviation {
   Abbreviation: string;
@@ -100,7 +101,6 @@ const nirfAbbreviations: Abbreviation[] = [
   { Abbreviation: "PR", "Full Form": "Public Perception", "User-friendly Explanation": "A measure of the college's public image and brand reputation." },
 ];
 
-// Helper to reliably get data regardless of casing (e.g., 'ss' vs 'SS')
 const getCaseInsensitiveData = (row: any, key: string) => {
   if (!row) return '';
   if (row[key] !== undefined && row[key] !== null) return row[key];
@@ -220,17 +220,6 @@ const SCROLL_OFFSET_TOP = 80;
 const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const analyticsRef = useRef<HTMLDivElement>(null);
-
-  const handleScrollToAnalytics = () => {
-    if (analyticsRef.current) {
-      const elementPosition = analyticsRef.current.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - SCROLL_OFFSET_TOP;
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
-    }
-  };
 
   const toggleFullScreen = () => {
     if (document.fullscreenElement) {
@@ -397,18 +386,15 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
 // --- NIRF EDITOR COMPONENT ---
 
 const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) => void }) => {
-  // Determine if we are editing 'nirf_data_from_csv' wrapper or direct object
   const hasCsvWrapper = data && typeof data === 'object' && 'nirf_data_from_csv' in data;
   const rawData = hasCsvWrapper ? data.nirf_data_from_csv : data;
 
-  // Convert object { "2023": {...}, "2022": {...} } to Array for editing
-  // Initialize state only once based on props
   const [rows, setRows] = useState<any[]>(() => {
     if (!rawData || typeof rawData !== 'object') return [];
     return Object.entries(rawData).map(([year, values]: [string, any]) => ({
       Year: year,
       ...values
-    })).sort((a, b) => Number(b.Year) - Number(a.Year)); // Descending years
+    })).sort((a, b) => Number(b.Year) - Number(a.Year));
   });
 
   const groupedHeaders = [
@@ -422,7 +408,6 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     { title: "Additional Info", keys: ["PDF", "Image"] },
   ];
 
-  // Reconstruct object structure whenever rows change and notify parent
   const updateParent = (newRows: any[]) => {
     const newObject: any = {};
     newRows.forEach(row => {
@@ -508,7 +493,6 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
                 </td>
                 {groupedHeaders.flatMap(group => group.keys).map((key, cIndex) => {
                   const isLastKeyInGroup = groupedHeaders.some((g, gIndex) => gIndex < groupedHeaders.length - 1 && g.keys[g.keys.length - 1] === key);
-                  // Find the value using case insensitive helper logic for initial render, but bind to specific key
                   const val = getCaseInsensitiveData(row, key);
 
                   return (
@@ -536,8 +520,114 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     </div>
   );
 };
-
 // --- NIRF LOGIC END ---
+
+// --- NEW FEATURE: CSV SECTION UPLOADER ---
+
+const CsvSectionUploader = ({ onUploadSuccess }: { onUploadSuccess: (key: string, data: any) => void }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [sectionTitle, setSectionTitle] = useState("");
+  const [filterName, setFilterName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file || !sectionTitle) {
+      alert("Please select a file and provide a section title.");
+      return;
+    }
+
+    setIsLoading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Using localhost python backend as per previous request context
+    // Change this URL if your python service is hosted elsewhere
+    let url = `http://localhost:8000/api/convert-csv`;
+    if (filterName) {
+      url += `?filter_name=${encodeURIComponent(filterName)}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to convert CSV");
+      }
+
+      const jsonData = await response.json();
+      
+      // Normalize key
+      const key = sectionTitle.trim().toLowerCase().replace(/\s+/g, '_');
+      
+      onUploadSuccess(key, jsonData);
+      
+      // Reset
+      setFile(null);
+      setSectionTitle("");
+      setFilterName("");
+      alert("CSV Uploaded and Converted Successfully!");
+
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Error uploading file. Make sure the Python backend is running.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 p-4 border border-dashed border-primary/40 bg-primary/5 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Section Title (Key)</Label>
+          <Input 
+            placeholder="e.g. Placement Statistics" 
+            value={sectionTitle} 
+            onChange={(e) => setSectionTitle(e.target.value)} 
+            className="bg-background"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Filter by Institute Name (Optional)</Label>
+          <Input 
+            placeholder="e.g. IIT Bombay" 
+            value={filterName} 
+            onChange={(e) => setFilterName(e.target.value)} 
+            className="bg-background"
+          />
+          <p className="text-[10px] text-muted-foreground">If uploaded CSV contains multiple colleges, use this to extract only rows matching this name.</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Upload CSV/XLSX File</Label>
+        <Input 
+          type="file" 
+          accept=".csv, .xlsx, .xls"
+          onChange={handleFileChange} 
+          className="bg-background"
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={handleUpload} disabled={isLoading || !file} className="bg-green-600 hover:bg-green-700 text-white">
+          {isLoading ? <IconLoader className="animate-spin mr-2 h-4 w-4" /> : <IconUpload className="mr-2 h-4 w-4" />} 
+          Upload & Convert
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 
 // --- Editable Table Component ---
 
@@ -558,7 +648,13 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
   if (!isStandardTable) {
     return (
       <div className="p-4 border rounded-md bg-yellow-50 text-yellow-800">
-        <p>Complex table format detected. Editing is limited to raw JSON for safety.</p>
+        <div className="flex items-start gap-3">
+            <IconFileSpreadsheet className="h-6 w-6 mt-1" />
+            <div>
+                <p className="font-semibold">Complex Table / CSV Format Detected</p>
+                <p className="text-xs mt-1">This data structure is complex (likely from a bulk upload). Use the raw JSON editor below to make precise changes to avoid data corruption.</p>
+            </div>
+        </div>
         <Textarea
           value={JSON.stringify(data, null, 2)}
           onChange={(e) => {
@@ -566,7 +662,7 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
               onChange(JSON.parse(e.target.value));
             } catch { }
           }}
-          className="mt-2 font-mono text-xs min-h-[200px]"
+          className="mt-4 font-mono text-xs min-h-[300px] bg-white text-black border-yellow-200"
         />
       </div>
     );
@@ -684,7 +780,7 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
 };
 
 // --- Rich Editor Component ---
-
+// (Unchanged, calls EditableTable internally)
 const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) => void }) => {
   if (typeof data === 'string' || typeof data === 'number' || data === null) {
     return (
@@ -790,7 +886,7 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
 };
 
 // --- Helper Components ---
-
+// (Highlighter and RenderDisplay unchanged)
 const Highlighter = ({ text, highlight }: { text: string; highlight: string }) => {
   if (!highlight || !highlight.trim()) {
     return <span>{text}</span>;
@@ -805,8 +901,6 @@ const Highlighter = ({ text, highlight }: { text: string; highlight: string }) =
     </span>
   );
 };
-
-// --- Render Display Component ---
 
 const RenderDisplay = ({ data, highlight }: { data: any; highlight: string }) => {
   if (data === null || data === undefined) return null;
@@ -915,12 +1009,14 @@ const RenderDisplay = ({ data, highlight }: { data: any; highlight: string }) =>
   return null;
 };
 
-// --- Section Creator & EditableSection ---
+// --- MODIFIED Inline Section Creator ---
 
-// --- Inline Section Creator ---
-
-const InlineSectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void }) => {
+// UPDATED: Now accepts activeTab so it can prefix keys correctly
+const InlineSectionCreator = ({ activeTab, onAdd }: { activeTab: string, onAdd: (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [createMode, setCreateMode] = useState<'manual' | 'upload'>('manual');
+  
+  // Manual State
   const [title, setTitle] = useState("");
   const [type, setType] = useState<'text' | 'list' | 'table' | 'group'>("text");
   const [textContent, setTextContent] = useState("");
@@ -933,12 +1029,15 @@ const InlineSectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | '
   const [subContent, setSubContent] = useState<any>("");
   const [editingSubsectionKey, setEditingSubsectionKey] = useState<string | null>(null);
 
-  const handleAdd = () => {
-    // Auto-generate key if title is empty
-    let finalKey = title.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!finalKey) {
-      finalKey = `section_${Date.now()}`;
+  const handleManualAdd = () => {
+    // UPDATED: Create suffix from title
+    let suffix = title.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!suffix) {
+      suffix = `section_${Date.now()}`;
     }
+
+    // UPDATED: Prefix with activeTab to ensure it belongs to the parent tab
+    const finalKey = `${activeTab}_${suffix}`;
 
     let finalContent: any = null;
 
@@ -971,15 +1070,6 @@ const InlineSectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | '
     if (!subTitle.trim()) {
       alert("Subsection title is required");
       return;
-    }
-
-    // Validation for empty content
-    if (subType === 'table' && (
-      !Array.isArray(subContent) ||
-      subContent.length === 0 ||
-      (subContent.length === 1 && Object.values(subContent[0]).every(v => v === ""))
-    )) {
-      // Allow empty table but maybe warn? For now let's allow it as RichEditor handles it.
     }
 
     setSubsections(prev => {
@@ -1052,7 +1142,7 @@ const InlineSectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | '
         onClick={() => setIsExpanded(true)}
         className="w-full py-6 text-md font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all"
       >
-        <IconPlus className="h-5 w-5 mr-2" /> Add New Section
+        <IconPlus className="h-5 w-5 mr-2" /> Add New Section to {activeTab.replace(/_/g, ' ')}
       </Button>
     );
   }
@@ -1060,204 +1150,237 @@ const InlineSectionCreator = ({ onAdd }: { onAdd: (key: string, type: 'text' | '
   return (
     <Card className="border border-border shadow-md animate-in fade-in zoom-in-95 duration-200 bg-card">
       <CardHeader className="pb-4 border-b border-border bg-muted/40">
-        <CardTitle className="text-foreground flex items-center gap-2 text-lg">
-          <IconFolderPlus className="h-5 w-5 text-primary" /> Create New Section
-        </CardTitle>
+        <div className="flex justify-between items-center">
+            <CardTitle className="text-foreground flex items-center gap-2 text-lg">
+            <IconFolderPlus className="h-5 w-5 text-primary" /> Create New Section in {activeTab.replace(/_/g, ' ')}
+            </CardTitle>
+            
+            <div className="flex bg-muted rounded-lg p-1">
+                <Button 
+                    variant={createMode === 'manual' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => setCreateMode('manual')}
+                    className="text-xs"
+                >
+                    Manual Create
+                </Button>
+                <Button 
+                    variant={createMode === 'upload' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => setCreateMode('upload')}
+                    className="text-xs"
+                >
+                    Upload File
+                </Button>
+            </div>
+        </div>
       </CardHeader>
+      
       <CardContent className="space-y-4 pt-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-foreground font-medium">Section Title <span className="text-muted-foreground text-xs font-normal">(Optional - Auto-generated if empty)</span></Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Campus Life"
-              className="bg-background"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-foreground font-medium">Content Type</Label>
-            <Select value={type} onValueChange={(v: any) => setType(v)}>
-              <SelectTrigger className="bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text"><div className="flex items-center"><IconAlignLeft className="mr-2 h-4 w-4" /> Paragraph (Text)</div></SelectItem>
-                <SelectItem value="list"><div className="flex items-center"><IconList className="mr-2 h-4 w-4" /> List (Points)</div></SelectItem>
-                <SelectItem value="table"><div className="flex items-center"><IconTable className="mr-2 h-4 w-4" /> Table (Structured)</div></SelectItem>
-                <SelectItem value="group"><div className="flex items-center"><IconFolder className="mr-2 h-4 w-4" /> Subsection (Group)</div></SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2 bg-muted/20 p-4 rounded-md border border-border">
-          <Label className="text-foreground font-medium">Initial Content</Label>
-
-          {type === 'text' && (
-            <Textarea
-              value={textContent}
-              onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Enter the paragraph content here..."
-              className="min-h-[100px] bg-background"
-            />
-          )}
-
-          {type === 'list' && (
-            <div className="space-y-1">
-              <Textarea
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-                placeholder="Item 1&#10;Item 2&#10;Item 3"
-                className="min-h-[100px] font-mono text-sm bg-background"
-              />
-              <p className="text-xs text-muted-foreground">Enter each list item on a new line.</p>
-            </div>
-          )}
-
-          {type === 'table' && (
-            <div className="space-y-2">
-              <Input
-                value={tableColumns}
-                onChange={(e) => setTableColumns(e.target.value)}
-                placeholder="Column 1, Column 2, Column 3"
-                className="bg-background"
-              />
-              <p className="text-xs text-muted-foreground">Enter column headers separated by commas.</p>
-            </div>
-          )}
-
-          {type === 'group' && (
-            <div className="space-y-4">
-              {/* List of added subsections */}
-              {Object.keys(subsections).length > 0 && (
+        {createMode === 'upload' ? (
+             <CsvSectionUploader onUploadSuccess={(key, data) => {
+                // UPDATED: Prefix uploaded data key with activeTab
+                const finalKey = `${activeTab}_${key}`;
+                onAdd(finalKey, 'table', data); 
+                resetForm();
+             }} />
+        ) : (
+            <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase text-muted-foreground">Added Subsections</Label>
-                  <div className="grid gap-2">
-                    {Object.entries(subsections).map(([k, v]) => {
-                      let typeLabel = 'Text';
-                      if (Array.isArray(v)) {
-                        if (v.length > 0 && typeof v[0] === 'object') typeLabel = 'Table';
-                        else typeLabel = 'List';
-                      }
-
-                      return (
-                        <div key={k} className="flex flex-col bg-background border p-3 rounded shadow-sm gap-2">
-                          <div className="flex justify-between items-center border-b pb-2 mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm">{k}</span>
-                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase tracking-wider font-medium">{typeLabel}</span>
-                            </div>
-                            <div className="flex items-center gap-1 -mr-2">
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={() => editSubsection(k)}>
-                                <IconEdit className="h-3 w-3" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => removeSubsection(k)}>
-                                <IconTrash className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="text-sm text-muted-foreground">
-                            {typeLabel === 'Text' && (
-                              <p className="line-clamp-2 italic">{v}</p>
-                            )}
-                            {typeLabel === 'List' && (
-                              <ul className="list-disc list-inside text-xs space-y-0.5">
-                                {v.slice(0, 3).map((item: string, i: number) => (
-                                  <li key={i} className="truncate">{item}</li>
-                                ))}
-                                {v.length > 3 && <li className="list-none text-muted-foreground/70 pl-4">...and {v.length - 3} more</li>}
-                              </ul>
-                            )}
-                            {typeLabel === 'Table' && (
-                              <div className="w-full overflow-x-auto">
-                                <Table className="w-full text-xs border">
-                                  <TableHeader>
-                                    <TableRow className="h-8 hover:bg-transparent">
-                                      {Object.keys(v[0]).map((header) => (
-                                        <TableHead key={header} className="h-8 px-2 py-1 font-medium">{header}</TableHead>
-                                      ))}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    <TableRow className="h-8">
-                                      <TableCell colSpan={Object.keys(v[0]).length} className="h-8 px-2 py-1 text-center text-muted-foreground italic">
-                                        {v.length} row(s) (Preview only)
-                                      </TableCell>
-                                    </TableRow>
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Add New Subsection Form */}
-              <div className="border border-dashed border-primary/30 bg-primary/5 p-4 rounded-md space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  {editingSubsectionKey ? <IconEdit className="h-4 w-4 text-primary" /> : <IconPlus className="h-4 w-4 text-primary" />}
-                  <span className="text-sm font-semibold text-primary">{editingSubsectionKey ? 'Edit Subsection' : 'Add Subsection'}</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="md:col-span-2">
+                    <Label className="text-foreground font-medium">Section Title <span className="text-muted-foreground text-xs font-normal">(Optional - Auto-generated if empty)</span></Label>
                     <Input
-                      placeholder="Subsection Title (Key)"
-                      value={subTitle}
-                      onChange={e => setSubTitle(e.target.value)}
-                      className="bg-background h-9"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., Campus Life"
+                    className="bg-background"
                     />
-                  </div>
-                  <div>
-                    <Select value={subType} onValueChange={(v: any) => handleSubTypeChange(v)}>
-                      <SelectTrigger className="bg-background h-9">
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-foreground font-medium">Content Type</Label>
+                    <Select value={type} onValueChange={(v: any) => setType(v)}>
+                    <SelectTrigger className="bg-background">
                         <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="text">Text</SelectItem>
-                        <SelectItem value="list">List</SelectItem>
-                        <SelectItem value="table">Table</SelectItem>
-                      </SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="text"><div className="flex items-center"><IconAlignLeft className="mr-2 h-4 w-4" /> Paragraph (Text)</div></SelectItem>
+                        <SelectItem value="list"><div className="flex items-center"><IconList className="mr-2 h-4 w-4" /> List (Points)</div></SelectItem>
+                        <SelectItem value="table"><div className="flex items-center"><IconTable className="mr-2 h-4 w-4" /> Table (Structured)</div></SelectItem>
+                        <SelectItem value="group"><div className="flex items-center"><IconFolder className="mr-2 h-4 w-4" /> Subsection (Group)</div></SelectItem>
+                    </SelectContent>
                     </Select>
-                  </div>
+                </div>
                 </div>
 
-                <div className="min-h-[100px] border rounded-md bg-background p-2">
-                  <RichEditor data={subContent} onChange={setSubContent} />
+                <div className="space-y-2 bg-muted/20 p-4 rounded-md border border-border">
+                <Label className="text-foreground font-medium">Initial Content</Label>
+
+                {type === 'text' && (
+                    <Textarea
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    placeholder="Enter the paragraph content here..."
+                    className="min-h-[100px] bg-background"
+                    />
+                )}
+
+                {type === 'list' && (
+                    <div className="space-y-1">
+                    <Textarea
+                        value={textContent}
+                        onChange={(e) => setTextContent(e.target.value)}
+                        placeholder="Item 1&#10;Item 2&#10;Item 3"
+                        className="min-h-[100px] font-mono text-sm bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground">Enter each list item on a new line.</p>
+                    </div>
+                )}
+
+                {type === 'table' && (
+                    <div className="space-y-2">
+                    <Input
+                        value={tableColumns}
+                        onChange={(e) => setTableColumns(e.target.value)}
+                        placeholder="Column 1, Column 2, Column 3"
+                        className="bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground">Enter column headers separated by commas.</p>
+                    </div>
+                )}
+
+                {type === 'group' && (
+                    <div className="space-y-4">
+                    {/* List of added subsections */}
+                    {Object.keys(subsections).length > 0 && (
+                        <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase text-muted-foreground">Added Subsections</Label>
+                        <div className="grid gap-2">
+                            {Object.entries(subsections).map(([k, v]) => {
+                            let typeLabel = 'Text';
+                            if (Array.isArray(v)) {
+                                if (v.length > 0 && typeof v[0] === 'object') typeLabel = 'Table';
+                                else typeLabel = 'List';
+                            }
+
+                            return (
+                                <div key={k} className="flex flex-col bg-background border p-3 rounded shadow-sm gap-2">
+                                <div className="flex justify-between items-center border-b pb-2 mb-1">
+                                    <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-sm">{k}</span>
+                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase tracking-wider font-medium">{typeLabel}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 -mr-2">
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={() => editSubsection(k)}>
+                                        <IconEdit className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => removeSubsection(k)}>
+                                        <IconTrash className="h-3 w-3" />
+                                    </Button>
+                                    </div>
+                                </div>
+
+                                <div className="text-sm text-muted-foreground">
+                                    {typeLabel === 'Text' && (
+                                    <p className="line-clamp-2 italic">{v}</p>
+                                    )}
+                                    {typeLabel === 'List' && (
+                                    <ul className="list-disc list-inside text-xs space-y-0.5">
+                                        {v.slice(0, 3).map((item: string, i: number) => (
+                                        <li key={i} className="truncate">{item}</li>
+                                        ))}
+                                        {v.length > 3 && <li className="list-none text-muted-foreground/70 pl-4">...and {v.length - 3} more</li>}
+                                    </ul>
+                                    )}
+                                    {typeLabel === 'Table' && (
+                                    <div className="w-full overflow-x-auto">
+                                        <Table className="w-full text-xs border">
+                                        <TableHeader>
+                                            <TableRow className="h-8 hover:bg-transparent">
+                                            {Object.keys(v[0]).map((header) => (
+                                                <TableHead key={header} className="h-8 px-2 py-1 font-medium">{header}</TableHead>
+                                            ))}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow className="h-8">
+                                            <TableCell colSpan={Object.keys(v[0]).length} className="h-8 px-2 py-1 text-center text-muted-foreground italic">
+                                                {v.length} row(s) (Preview only)
+                                            </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                        </Table>
+                                    </div>
+                                    )}
+                                </div>
+                                </div>
+                            );
+                            })}
+                        </div>
+                        </div>
+                    )}
+
+                    {/* Add New Subsection Form */}
+                    <div className="border border-dashed border-primary/30 bg-primary/5 p-4 rounded-md space-y-3">
+                        <div className="flex items-center gap-2 mb-2">
+                        {editingSubsectionKey ? <IconEdit className="h-4 w-4 text-primary" /> : <IconPlus className="h-4 w-4 text-primary" />}
+                        <span className="text-sm font-semibold text-primary">{editingSubsectionKey ? 'Edit Subsection' : 'Add Subsection'}</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
+                            <Input
+                            placeholder="Subsection Title (Key)"
+                            value={subTitle}
+                            onChange={e => setSubTitle(e.target.value)}
+                            className="bg-background h-9"
+                            />
+                        </div>
+                        <div>
+                            <Select value={subType} onValueChange={(v: any) => handleSubTypeChange(v)}>
+                            <SelectTrigger className="bg-background h-9">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="text">Text</SelectItem>
+                                <SelectItem value="list">List</SelectItem>
+                                <SelectItem value="table">Table</SelectItem>
+                            </SelectContent>
+                            </Select>
+                        </div>
+                        </div>
+
+                        <div className="min-h-[100px] border rounded-md bg-background p-2">
+                        <RichEditor data={subContent} onChange={setSubContent} />
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                        {editingSubsectionKey && (
+                            <Button onClick={() => {
+                            setEditingSubsectionKey(null);
+                            setSubTitle("");
+                            setSubContent("");
+                            setSubType("text");
+                            }} variant="ghost" size="sm" className="h-8">
+                            Cancel
+                            </Button>
+                        )}
+                        <Button onClick={handleAddSubsection} variant="secondary" size="sm" className="h-8">
+                            {editingSubsectionKey ? 'Update Subsection' : 'Add Subsection'}
+                        </Button>
+                        </div>
+                    </div>
+                    </div>
+                )}
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  {editingSubsectionKey && (
-                    <Button onClick={() => {
-                      setEditingSubsectionKey(null);
-                      setSubTitle("");
-                      setSubContent("");
-                      setSubType("text");
-                    }} variant="ghost" size="sm" className="h-8">
-                      Cancel
-                    </Button>
-                  )}
-                  <Button onClick={handleAddSubsection} variant="secondary" size="sm" className="h-8">
-                    {editingSubsectionKey ? 'Update Subsection' : 'Add Subsection'}
-                  </Button>
+                <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={resetForm}>Cancel</Button>
+                <Button onClick={handleManualAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                    <IconCheck className="h-4 w-4 mr-2" /> Create Section
+                </Button>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="outline" onClick={resetForm}>Cancel</Button>
-          <Button onClick={handleAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <IconCheck className="h-4 w-4 mr-2" /> Create Section
-          </Button>
-        </div>
+            </>
+        )}
       </CardContent>
     </Card>
   );
@@ -1333,7 +1456,7 @@ const initialBasicData: CollegeData = {
   Website: '',
   'NIRF 2024': null,
   'B.Tech Seats': null,
-  'B.Tech Programmes': '',
+  'B.Tech Programmes': null, // <--- Fixed: Changed from type definition to actual value (null)
   Establishment: null,
 };
 
@@ -1365,7 +1488,7 @@ export default function AddCollegePage() {
 
     setIsAdding(true);
     try {
-      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/api/add-college`, {
+      const response = await fetch(`http://localhost:8000/api/add-college`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1500,19 +1623,27 @@ export default function AddCollegePage() {
             {['about', 'courses', 'seat_matrix', 'ranking', 'nirf'].map(tab => (
               <TabsContent key={tab} value={tab} className="space-y-6 mt-6 w-full max-w-full">
 
-                {/* INLINE SECTION CREATOR AT TOP */}
+                {/* UPDATED: Pass activeTab to the Creator */}
                 <div className="mb-8">
-                  <InlineSectionCreator onAdd={handleAddSection} />
+                  <InlineSectionCreator activeTab={tab} onAdd={handleAddSection} />
                 </div>
 
                 {Object.entries(fullData).map(([key, value]) => {
                   let show = false;
-                  // Hide 'nirf' key from all tabs EXCEPT 'nirf' tab
-                  if (tab === 'about' && (key === 'about' || key === 'banner_section' || !['courses', 'admission', 'seat_matrix', 'ranking', 'nirf'].includes(key))) show = true;
-                  if (tab === 'courses' && (key === 'courses' || key === 'admission')) show = true;
-                  if (tab === 'seat_matrix' && key === 'seat_matrix') show = true;
-                  if (tab === 'ranking' && (key === 'ranking')) show = true;
-                  if (tab === 'nirf' && key === 'nirf') show = true;
+
+                  // UPDATED: Logic to ensure prefixed sections show in the correct tab
+                  const isExactMatch = key === tab; // e.g., 'seat_matrix'
+                  const isSubSection = key.startsWith(`${tab}_`); // e.g., 'seat_matrix_pool_a'
+                  
+                  if (tab === 'about') {
+                     // About is catch-all, but ignore known keys from other tabs
+                     const isOtherTabKey = ['courses', 'seat_matrix', 'ranking', 'nirf', 'admission'].some(t => key.startsWith(t));
+                     // If it's NOT belonging to another tab, OR if it matches 'about'/'about_xyz'
+                     if (!isOtherTabKey || isExactMatch || isSubSection || key === 'banner_section') show = true;
+                  } else {
+                     // Strict matching for other tabs
+                     if (isExactMatch || isSubSection || (tab === 'courses' && key === 'admission')) show = true;
+                  }
 
                   if (!show) return null;
 
