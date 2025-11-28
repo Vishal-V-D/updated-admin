@@ -548,7 +548,7 @@ const CsvSectionUploader = ({ onUploadSuccess }: { onUploadSuccess: (key: string
 
     // Using localhost python backend as per previous request context
     // Change this URL if your python service is hosted elsewhere
-    let url = `http://localhost:8000/api/convert-csv`;
+    let url = `https://josaa-admin-backend-1.onrender.com/api/convert-csv`;
     if (filterName) {
       url += `?filter_name=${encodeURIComponent(filterName)}`;
     }
@@ -1488,7 +1488,7 @@ export default function AddCollegePage() {
 
     setIsAdding(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/add-college`, {
+      const response = await fetch(`https://josaa-admin-backend-1.onrender.com/api/add-college`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
