@@ -48,7 +48,7 @@ import {
   IconLoader, IconCheck, IconX, IconEdit, IconSearch, IconReplace,
   IconPlus, IconTrash, IconTable, IconList, IconAlignLeft,
   IconFolder, IconDotsVertical, IconArrowUp, IconArrowDown,
-  IconGripVertical, IconUpload, IconPencil, IconFilter
+  IconGripVertical, IconUpload, IconPencil, IconFilter, IconKey
 } from '@tabler/icons-react';
 import {
   MaximizeIcon, MinimizeIcon, BarChart2
@@ -62,13 +62,15 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  useDroppable // Added for column DndContext
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  horizontalListSortingStrategy, // Added for column sorting
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -184,7 +186,7 @@ const FullScreenNirfTable: React.FC<{
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View</span>
-            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -195,7 +197,7 @@ const FullScreenNirfTable: React.FC<{
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>Graph</span>
-            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -337,7 +339,7 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View PDF</span>
-            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -348,7 +350,7 @@ const NirfSection: React.FC<{ nirfData: any }> = ({ nirfData }) => {
         return (
           <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center space-x-2">
             <span>View Graph</span>
-            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M7 21H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" /><path d="M12 12v6h6" /></svg>
           </a>
         );
       }
@@ -442,8 +444,8 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
   const [rows, setRows] = useState<any[]>(() => {
     if (!rawData || typeof rawData !== 'object') return [];
     return Object.entries(rawData).map(([year, values]: [string, any]) => ({
+      ...values,
       Year: year,
-      ...values
     })).sort((a, b) => Number(b.Year) - Number(a.Year));
   });
 
@@ -460,6 +462,7 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
 
   const updateParent = (newRows: any[]) => {
     const newObject: any = {};
+    // Ensure the new rows are stored by year, and most recent year first (or user's current sort order)
     newRows.forEach(row => {
       const { Year, ...rest } = row;
       if (Year) {
@@ -483,12 +486,17 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
 
   const addRow = () => {
     const currentYear = new Date().getFullYear();
-    const newYear = rows.length > 0 ? (Number(rows[0].Year) + 1).toString() : currentYear.toString();
+    // Use the maximum year + 1 for the new entry's year
+    const maxYear = rows.length > 0 ? Math.max(...rows.map(row => Number(row.Year)).filter(y => !isNaN(y))) : currentYear - 1;
+    const newYear = (maxYear + 1).toString();
+
     const newRow = {
       Year: newYear, Score: "", SS: "", FSR: "", FQE: "", FRU: "", PU: "", QP: "", IPR: "", FPPP: "",
       GPH: "", GUE: "", MS: "", GPHD: "", RD: "", WD: "", ESCS: "", PCS: "", PR: "", PDF: "", Image: ""
     };
-    const newRows = [newRow, ...rows];
+
+    // New row is inserted at the start, then sorted by Year desc
+    const newRows = [newRow, ...rows].sort((a, b) => Number(b.Year) - Number(a.Year));
     setRows(newRows);
     updateParent(newRows);
   };
@@ -505,7 +513,7 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     <div className="space-y-4 overflow-hidden">
       <div className="flex justify-end mb-2">
         <Button size="sm" onClick={addRow} variant="outline">
-          <IconPlus className="h-4 w-4 mr-2" /> Add Year
+          <IconPlus className="h-4 w-4 mr-2" /> Add Year (Newest First)
         </Button>
       </div>
 
@@ -572,7 +580,52 @@ const NirfEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
   );
 };
 
-// --- NIRF LOGIC END ---
+// --- SORTABLE HEADER COMPONENT (NEW) ---
+
+interface SortableHeaderProps {
+  colKey: string;
+  deleteColumn: (colKey: string) => void;
+}
+
+const SortableHeader = ({ colKey, deleteColumn }: SortableHeaderProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: colKey });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    cursor: 'grab',
+    position: 'relative' as const, // Ensure TH respects its position during drag
+  };
+
+  return (
+    <TableHead
+      ref={setNodeRef}
+      style={style}
+      className="whitespace-nowrap min-w-[200px] bg-muted/50 p-2"
+    >
+      <div className="flex items-center justify-between gap-2">
+        {/* Combine listeners and attributes on a single div for drag handle */}
+        <div {...attributes} {...listeners} className="flex items-center gap-2 h-full py-1">
+            <IconGripVertical className="h-4 w-4 text-muted-foreground" />
+            <span className="capitalize">
+                {colKey.replace(/_/g, ' ')}
+            </span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => deleteColumn(colKey)}>
+          <IconTrash className="h-3 w-3 text-red-500" />
+        </Button>
+      </div>
+    </TableHead>
+  );
+};
 
 // --- SORTABLE ROW COMPONENT ---
 
@@ -608,7 +661,7 @@ const SortableRow = ({ row, rowIndex, id, columns, updateCell, deleteRow, addRow
   return (
     <TableRow ref={setNodeRef} style={style}>
       {/* Drag Handle Column */}
-      <TableCell className="w-[50px] whitespace-nowrap bg-muted/20 p-2 text-center cursor-grab touch-none" >
+      <TableCell className="w-[50px] whitespace-nowrap bg-muted/20 p-2 text-center cursor-grab touch-none sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" >
         <div {...attributes} {...listeners} className="flex justify-center items-center h-full text-muted-foreground hover:text-foreground">
           <IconGripVertical className="h-4 w-4" />
         </div>
@@ -623,7 +676,8 @@ const SortableRow = ({ row, rowIndex, id, columns, updateCell, deleteRow, addRow
       {columns.map(col => (
         <TableCell key={`${rowIndex}-${col}`} className="whitespace-nowrap p-2">
           <Input
-            value={typeof row[col] === 'object' ? JSON.stringify(row[col]) : row[col]}
+            // Ensure we use the value for the *current* column key
+            value={typeof row[col] === 'object' ? JSON.stringify(row[col]) : row[col] ?? ''}
             onChange={(e) => updateCell(rowIndex, col, e.target.value)}
             className="h-9 min-w-[180px]"
           />
@@ -655,9 +709,15 @@ const SortableRow = ({ row, rowIndex, id, columns, updateCell, deleteRow, addRow
   );
 };
 
-// --- Editable Table Component (Updated with DnD) ---
+// --- Editable Table Component (Updated with DnD for Rows & Columns) ---
 
 const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: any[]) => void }) => {
+  // CRITICAL HYDRATION FIX: State to track if component is mounted client-side
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="text-center p-4 border border-dashed rounded-md">
@@ -688,6 +748,27 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
     );
   }
 
+  // State to manage column order
+  const initialColumns = useMemo(() => Object.keys(data[0]), [data]);
+  const [columns, setColumns] = useState<string[]>(initialColumns);
+
+  // Sync columns state when external data prop changes (e.g., adding a new column via prompt/CSV)
+  // This ensures new columns appear in the local state, but preserves the current order for existing ones.
+  useEffect(() => {
+      const currentDataKeys = Object.keys(data[0]);
+      const currentSet = new Set(columns);
+      const newKeys = currentDataKeys.filter(key => !currentSet.has(key));
+
+      if (newKeys.length > 0 || currentDataKeys.length !== columns.length) {
+          // If there are new keys, append them to the current order
+          // If a column was deleted externally, filter it out.
+          const filteredColumns = columns.filter(col => currentDataKeys.includes(col));
+          setColumns([...filteredColumns, ...newKeys]);
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+
   // --- DnD Setup ---
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -700,20 +781,46 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
     })
   );
 
-  const columns = Object.keys(data[0]);
+  const rowItems = useMemo(() => data.map((_, index) => `row-${index}`), [data]);
+  const columnItems = useMemo(() => columns, [columns]);
 
-  const items = useMemo(() => data.map((_, index) => `row-${index}`), [data]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleRowDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      // Find the indices
-      const oldIndex = items.indexOf(active.id as string);
-      const newIndex = items.indexOf(over.id as string);
+      const oldIndex = rowItems.indexOf(active.id as string);
+      const newIndex = rowItems.indexOf(over.id as string);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         onChange(arrayMove(data, oldIndex, newIndex));
+      }
+    }
+  };
+
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = columnItems.indexOf(active.id as string);
+      const newIndex = columnItems.indexOf(over.id as string);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // 1. Update the local column order state
+        const newColumnOrder = arrayMove(columns, oldIndex, newIndex);
+        setColumns(newColumnOrder);
+
+        // 2. CRITICAL FIX: Recreate the data objects to ensure column order is reflected
+        const newData = data.map(row => {
+          const newRow: any = {};
+          newColumnOrder.forEach(colKey => {
+            // Use the value from the old row for the current column key
+            newRow[colKey] = row[colKey];
+          });
+          return newRow;
+        });
+
+        // 3. Update parent state
+        onChange(newData);
       }
     }
   };
@@ -726,12 +833,14 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
 
   const addRow = (index?: number) => {
     const newRow: any = {};
+    // Use the current column order when creating a new row
     columns.forEach(col => newRow[col] = "");
     const newData = [...data];
     if (typeof index === 'number') {
       newData.splice(index, 0, newRow);
     } else {
-      newData.push(newRow);
+      // **NEW ROW AT TOP**
+      newData.splice(0, 0, newRow);
     }
     onChange(newData);
   };
@@ -743,84 +852,128 @@ const EditableTable = ({ data, onChange }: { data: any[], onChange: (newData: an
 
   const addColumn = () => {
     const name = prompt("Enter new column name:");
-    if (name && !columns.includes(name)) {
-      const newData = data.map(row => ({ ...row, [name]: "" }));
+    if (name) {
+      const newColKey = name.trim().replace(/\s+/g, '_');
+      if (columns.includes(newColKey)) {
+        alert("A column with this key already exists. Please choose a different name.");
+        return;
+      }
+      
+      // Update data structure first
+      const newData = data.map(row => ({ ...row, [newColKey]: "" }));
+
+      // Add to local columns state (to show in table immediately)
+      setColumns([...columns, newColKey]);
+
+      // Update parent data (This will trigger the useEffect to resync columns if needed)
       onChange(newData);
     }
   };
 
   const deleteColumn = (colKey: string) => {
-    if (confirm(`Delete column "${colKey}"?`)) {
+    if (confirm(`Delete column "${colKey}"? This action cannot be undone.`)) {
+      // 1. Remove from local column state
+      setColumns(cols => cols.filter(c => c !== colKey));
+
+      // 2. Remove the key from all rows in the data
       const newData = data.map(row => {
         const newRow = { ...row };
         delete newRow[colKey];
         return newRow;
       });
+      // 3. Update parent data
       onChange(newData);
     }
   };
+  
+  // Render nothing or a fallback until client-side mount to prevent hydration error
+  if (!isClient) {
+    return (
+        <div className="p-4 border rounded-md bg-muted/20 w-full text-muted-foreground flex items-center">
+            <IconLoader className="animate-spin mr-2 h-4 w-4" /> Loading Table Editor...
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-2 w-full max-w-full">
       <div className="flex space-x-2 mb-2">
-        <Button variant="outline" size="sm" onClick={() => addRow()}><IconPlus className="h-4 w-4 mr-2" /> Add Row Bottom</Button>
+        <Button variant="outline" size="sm" onClick={() => addRow()}><IconPlus className="h-4 w-4 mr-2" /> Add Row (Top)</Button>
         <Button variant="outline" size="sm" onClick={addColumn}><IconTable className="h-4 w-4 mr-2" /> Add Column</Button>
       </div>
 
-      <div className="w-full max-w-[85vw] md:max-w-[calc(100vw-250px)] overflow-x-auto rounded-lg border shadow-sm">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <Table className="min-w-full w-max">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead> {/* Drag Handle Header */}
-                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50">#</TableHead>
-                {columns.map(col => (
-                  <TableHead key={col} className="whitespace-nowrap min-w-[200px] bg-muted/50">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>{col}</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteColumn(col)}>
-                        <IconTrash className="h-3 w-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableHead>
-                ))}
-                <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <SortableContext
-                items={items}
-                strategy={verticalListSortingStrategy}
-              >
-                {data.map((row, rowIndex) => (
-                  <SortableRow
-                    key={`row-${rowIndex}`} // Using index-based key for reordering
-                    id={`row-${rowIndex}`}
-                    row={row}
-                    rowIndex={rowIndex}
-                    columns={columns}
-                    updateCell={updateCell}
-                    deleteRow={deleteRow}
-                    addRow={addRow}
-                  />
-                ))}
-              </SortableContext>
-            </TableBody>
-          </Table>
-        </DndContext>
+      <div className="w-full max-w-[85vw] md:max-w-[calc(100vw-250px)] overflow-x-auto rounded-lg border shadow-sm scrollbar-modern">
+        <Table className="min-w-full w-max">
+            {/* COLUMN DND CONTEXT */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleColumnDragEnd}
+            >
+                <TableHeader>
+                    <TableRow className="bg-muted/50">
+                        {/* Static Columns */}
+                        <TableHead className="w-[50px] whitespace-nowrap bg-muted/50 sticky left-0 z-20"></TableHead> {/* Drag Handle Header */}
+                        <TableHead className="w-[50px] whitespace-nowrap bg-muted/50">#</TableHead>
+
+                        {/* Sortable Columns */}
+                        <SortableContext
+                            items={columnItems}
+                            strategy={horizontalListSortingStrategy}
+                        >
+                            {columns.map((col) => (
+                                <SortableHeader
+                                    key={col}
+                                    colKey={col}
+                                    deleteColumn={deleteColumn}
+                                />
+                            ))}
+                        </SortableContext>
+                        <TableHead className="w-[50px] whitespace-nowrap bg-muted/50"></TableHead> {/* Actions Header */}
+                    </TableRow>
+                </TableHeader>
+            </DndContext>
+
+            {/* ROW DND CONTEXT */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleRowDragEnd}
+            >
+                <TableBody>
+                    <SortableContext
+                        items={rowItems}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {data.map((row, rowIndex) => (
+                            <SortableRow
+                                key={`row-${rowIndex}`}
+                                id={`row-${rowIndex}`}
+                                row={row}
+                                rowIndex={rowIndex}
+                                columns={columns} // Use the locally sorted column state
+                                updateCell={updateCell}
+                                deleteRow={deleteRow}
+                                addRow={addRow}
+                            />
+                        ))}
+                    </SortableContext>
+                </TableBody>
+            </DndContext>
+        </Table>
       </div>
     </div>
   );
 };
 
 // --- Rich Editor Component ---
-
+// MODIFIED to include Add Key and Delete Key for generic objects
 const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) => void }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newKey, setNewKey] = useState("");
+  const [newValue, setNewValue] = useState("");
+  const [addKeyDialogOpen, setAddKeyDialogOpen] = useState(false);
+
 
   // This allows CSV upload inside existing tables, preserving the existing behavior
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -839,6 +992,48 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  const handleDeleteKey = (keyToDelete: string) => {
+    if (confirm(`Are you sure you want to delete the field "${keyToDelete}"?`)) {
+        if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const newObject = { ...data };
+            delete newObject[keyToDelete];
+            onChange(newObject);
+        }
+    }
+  };
+  
+  const handleAddKey = () => {
+    if (!newKey.trim()) {
+        alert("Key name is required.");
+        return;
+    }
+    const finalKey = newKey.trim().toLowerCase().replace(/\s+/g, '_');
+    if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        if (data[finalKey]) {
+            alert(`Key "${finalKey}" already exists.`);
+            return;
+        }
+
+        let parsedValue: any = newValue;
+        try {
+            parsedValue = JSON.parse(newValue);
+        } catch (e) {
+            // Assume simple string if JSON parsing fails
+            parsedValue = newValue; 
+        }
+
+        const newObject = {
+            [finalKey]: parsedValue, // Add new key at the top
+            ...data
+        };
+        onChange(newObject);
+        setNewKey("");
+        setNewValue("");
+        setAddKeyDialogOpen(false);
+    }
+  };
+  
 
   if (typeof data === 'string' || typeof data === 'number' || data === null) {
     return (
@@ -872,13 +1067,14 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
       );
     }
 
+    // List Editor
     return (
       <div className="space-y-2">
         {data.map((item, idx) => (
-          <div key={idx} className="flex gap-2">
+          <div key={idx} className="flex gap-2 items-start">
             {typeof item === 'object' ? (
               <Textarea
-                value={JSON.stringify(item)}
+                value={JSON.stringify(item, null, 2)}
                 onChange={(e) => {
                   try {
                     const newData = [...data];
@@ -886,7 +1082,7 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
                     onChange(newData);
                   } catch { }
                 }}
-                className="min-h-[60px]"
+                className="min-h-[60px] font-mono text-xs flex-1"
               />
             ) : (
               <Input
@@ -896,12 +1092,13 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
                   newData[idx] = e.target.value;
                   onChange(newData);
                 }}
+                className="flex-1"
               />
             )}
             <Button variant="ghost" size="icon" onClick={() => {
               const newData = data.filter((_, i) => i !== idx);
               onChange(newData);
-            }}>
+            }} className="mt-2 shrink-0">
               <IconTrash className="h-4 w-4 text-red-500" />
             </Button>
           </div>
@@ -913,12 +1110,54 @@ const RichEditor = ({ data, onChange }: { data: any, onChange: (newData: any) =>
     );
   }
 
+  // Object Editor (Used for Basic Info and generic nested objects)
   if (typeof data === 'object') {
     return (
       <div className="space-y-4 pl-4 border-l-2 border-muted">
+        <Dialog open={addKeyDialogOpen} onOpenChange={setAddKeyDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full justify-start border-dashed">
+                    <IconPlus className="h-4 w-4 mr-2" /> Add New Key-Value Field
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Add New Field</DialogTitle>
+                    <DialogDescription>
+                        Add a new key-value pair to this group.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="newKey">Key Name (e.g., median_salary)</Label>
+                        <Input id="newKey" value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="e.g., student_strength" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="newValue">Initial Value (Text or JSON)</Label>
+                        <Textarea id="newValue" value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder="e.g., 1200 or [1, 2, 3]" className="min-h-[100px] font-mono text-xs" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleAddKey}>Add Field</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        
         {Object.entries(data).map(([key, value]) => (
-          <div key={key} className="space-y-2">
-            <Label className="capitalize font-semibold">{key.replace(/_/g, ' ')}</Label>
+          <div key={key} className="space-y-2 border p-3 rounded-md bg-background relative group">
+            <div className="flex justify-between items-center mb-1">
+              <Label className="capitalize font-semibold text-sm flex items-center">
+                <IconKey className="h-3 w-3 mr-1 text-muted-foreground"/> {key.replace(/_/g, ' ')}
+              </Label>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleDeleteKey(key)} 
+                className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <IconTrash className="h-3 w-3" />
+              </Button>
+            </div>
             <RichEditor
               data={value}
               onChange={(newValue) => onChange({ ...data, [key]: newValue })}
@@ -1060,8 +1299,8 @@ const RenderDisplay = ({ data, highlight }: { data: any; highlight: string }) =>
 
 // --- Section Creator & CsvSectionUploader ---
 
-// UPDATED COMPONENT: Includes Filter Logic
-const CsvSectionUploader = ({ onUpload, defaultFilter, tabName }: { onUpload: (key: string, data: any) => void, defaultFilter?: string, tabName: string }) => {
+// FIX 4: Updated CsvSectionUploader prop type definition
+const CsvSectionUploader = ({ onUpload, defaultFilter, tabName }: { onUpload: (parentKey: string, sectionTitle: string, data: any) => void, defaultFilter?: string, tabName: string }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterName, setFilterName] = useState(defaultFilter || "");
 
@@ -1083,9 +1322,8 @@ const CsvSectionUploader = ({ onUpload, defaultFilter, tabName }: { onUpload: (k
       const title = prompt("Enter a Title for this new Table Section:", defaultTitle);
 
       if (title && title.trim()) {
-        // Prefix key with tab name to keep it scoped
-        const scopedKey = `${tabName}_${title.trim().toLowerCase().replace(/\s+/g, '_')}`;
-        onUpload(scopedKey, jsonData);
+        // We now pass both the tab name and the section title
+        onUpload(tabName, title.trim().toLowerCase().replace(/\s+/g, '_'), jsonData);
       }
     } catch (err: any) {
       alert(`Error uploading file: ${err.message}`);
@@ -1129,7 +1367,8 @@ const CsvSectionUploader = ({ onUpload, defaultFilter, tabName }: { onUpload: (k
   );
 };
 
-const SectionCreator = ({ onAdd, tabName }: { onAdd: (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void, tabName: string }) => {
+// FIX 1: Updated SectionCreator prop type definition
+const SectionCreator = ({ onAdd, tabName }: { onAdd: (parentKey: string, sectionTitle: string, type: 'text' | 'list' | 'table' | 'group', content: any) => void, tabName: string }) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<'text' | 'list' | 'table' | 'group'>("text");
@@ -1158,9 +1397,8 @@ const SectionCreator = ({ onAdd, tabName }: { onAdd: (key: string, type: 'text' 
       return;
     }
 
-    // Prefix with tab name for manual creation too
-    const scopedKey = `${tabName}_${title.trim().toLowerCase().replace(/\s+/g, '_')}`;
-    onAdd(scopedKey, type, parsedContent);
+    // Pass the tab name as the potential parent key and the title as the section key
+    onAdd(tabName, title.trim().toLowerCase().replace(/\s+/g, '_'), type, parsedContent);
     setOpen(false);
     setTitle("");
     setType("text");
@@ -1194,7 +1432,7 @@ const SectionCreator = ({ onAdd, tabName }: { onAdd: (key: string, type: 'text' 
                 <SelectItem value="text"><div className="flex items-center"><IconAlignLeft className="mr-2 h-4 w-4" /> Paragraph</div></SelectItem>
                 <SelectItem value="list"><div className="flex items-center"><IconList className="mr-2 h-4 w-4" /> List</div></SelectItem>
                 <SelectItem value="table"><div className="flex items-center"><IconTable className="mr-2 h-4 w-4" /> Table</div></SelectItem>
-                <SelectItem value="group"><div className="flex items-center"><IconFolder className="mr-2 h-4 w-4" /> Key-Value Group</div></SelectItem>
+                <SelectItem value="group"><div className="flex items-center"><IconFolder className="mr-2 h-4 w-4" /> Key-Value Group (Try to merge into parent)</div></SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1373,62 +1611,187 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
 
   const startEditing = (section: string, data: any) => {
     setEditingSection(section);
+    // Use deep copy to prevent direct state modification before saving
     setTempData(JSON.parse(JSON.stringify(data)));
   };
 
   const saveEditing = (section: string) => {
-    if (section === 'basic') setBasicData(tempData);
+    // Check if section is a nested key (e.g., "about/banner_section")
+    if (section.includes('/')) {
+        const [parentKey, nestedKey] = section.split('/');
+        setFullData(prev => {
+            if (!prev) return prev;
+            // Merge the saved data back into the parent object
+            const newParentData = { ...prev[parentKey], [nestedKey]: tempData };
+            return { ...prev, [parentKey]: newParentData };
+        });
+    }
+    // Handle top-level and basic data
+    else if (section === 'basic') setBasicData(tempData);
     else setFullData(prev => prev ? ({ ...prev, [section]: tempData }) : prev);
+    
     setEditingSection(null);
     setTempData(null);
   };
 
   const handleDeleteSection = (key: string) => {
     if (confirm(`Are you sure you want to delete the section "${key}"? This action cannot be undone.`)) {
-      setFullData(prev => {
-        if (!prev) return null;
-        const newData = { ...prev };
-        delete newData[key];
-        return newData;
-      });
+      // Handle nested deletion (e.g., delete 'banner_section' from 'about')
+      if (key.includes('/')) {
+          const [parentKey, nestedKey] = key.split('/');
+          setFullData(prev => {
+              if (!prev || !prev[parentKey]) return prev;
+              const newParentData = { ...prev[parentKey] };
+              delete newParentData[nestedKey];
+              return { ...prev, [parentKey]: newParentData };
+          });
+      } else {
+        // Handle top-level deletion
+        setFullData(prev => {
+          if (!prev) return null;
+          const newData = { ...prev };
+          delete newData[key];
+          return newData;
+        });
+      }
     }
   };
 
   // Logic to rename a section key (Title)
   const handleRenameSection = (oldKey: string, newKey: string) => {
     if (oldKey === newKey) return;
+    
+    // Handle nested rename (e.g., rename 'testing' inside 'seat_matrix')
+    if (oldKey.includes('/')) {
+        const [parentKey, oldNestedKey] = oldKey.split('/');
+        const newNestedKey = newKey; // newKey is the clean title provided by the prompt/rename function
+        
+        setFullData(prev => {
+            if (!prev || !prev[parentKey] || prev[parentKey][newNestedKey]) {
+                if (prev && prev[parentKey] && prev[parentKey][newNestedKey]) {
+                    alert("A nested field with this new name already exists.");
+                }
+                return prev;
+            }
+
+            const parentData = prev[parentKey];
+            // Ensure data structure order is maintained by modifying keys within the parent object
+            const entries: [string, any][] = Object.entries(parentData);
+            const index = entries.findIndex(([k]) => k === oldNestedKey);
+            if (index === -1) return prev;
+
+            entries[index] = [newNestedKey, parentData[oldNestedKey]]; 
+            const newParentData = Object.fromEntries(entries);
+            return { ...prev, [parentKey]: newParentData };
+        });
+        return; 
+    }
+
+    // Handle top-level rename
     setFullData(prev => {
       if (!prev) return null;
       if (prev[newKey]) {
         alert("A section with this name already exists.");
         return prev;
       }
-      // Create new object to preserve order or just append? 
-      // To preserve order in JS objects (mostly works), we reconstruct.
-      const entries = Object.entries(prev);
+      
+      const entries: [string, any][] = Object.entries(prev) as [string, any][];
       const index = entries.findIndex(([k]) => k === oldKey);
       if (index === -1) return prev;
 
-      entries[index] = [newKey, prev[oldKey]]; // Replace key
+      entries[index] = [newKey, prev[oldKey]]; 
       return Object.fromEntries(entries);
     });
   };
 
-  const handleAddSection = (key: string, type: 'text' | 'list' | 'table' | 'group', content: any) => {
-    setFullData(prev => prev ? ({ ...prev, [key]: content }) : prev);
+  // UPDATED: Handle manually added sections
+  const handleAddSection = (parentKey: string, sectionTitle: string, type: 'text' | 'list' | 'table' | 'group', content: any) => {
+    setFullData(prev => {
+      if (!prev) return { [parentKey]: { [sectionTitle]: content } };
+
+      let currentFullData = { ...prev }; // Copy full data
+
+      // 1. Check if the parent key is a TAB name that should act as an object container
+      const isTabContainer = ['about', 'courses', 'seat_matrix', 'ranking'].includes(parentKey);
+
+      if (isTabContainer) {
+          // Ensure the parent key exists and is an object, or initialize it as an empty object
+          if (typeof currentFullData[parentKey] !== 'object' || currentFullData[parentKey] === null || Array.isArray(currentFullData[parentKey])) {
+              currentFullData[parentKey] = {};
+          }
+          
+          // New data should be prepended as a sub-key within the parent object (tab container)
+          const existingChildren = currentFullData[parentKey] || {};
+          const newParentValue = { 
+              [sectionTitle]: content, 
+              ...existingChildren 
+          };
+
+          return {
+              ...currentFullData,
+              [parentKey]: newParentValue
+          };
+      }
+      
+      // Fallback: Create a new scoped top-level key (e.g., 'courses_new_section')
+      const newKey = `${parentKey}_${sectionTitle}`;
+      const entries: [string, any][] = Object.entries(currentFullData) as [string, any][];
+      const parentIndex = entries.findIndex(([k]) => k === parentKey);
+      
+      const newEntries = [...entries];
+      const newContentEntry: [string, any] = [newKey, content];
+      
+      // Insert after the tab's primary content if it exists, otherwise just push to the end/start.
+      if (parentIndex !== -1) {
+          newEntries.splice(parentIndex + 1, 0, newContentEntry);
+      } else {
+          newEntries.push(newContentEntry);
+      }
+
+      return Object.fromEntries(newEntries);
+    });
   };
 
-  // New handler for CSV uploads to place them at the TOP of the data structure
-  const handleCsvSectionAdd = (key: string, data: any) => {
+  // UPDATED: Handle CSV uploads
+  const handleCsvSectionAdd = (parentKey: string, sectionTitle: string, data: any) => {
     setFullData(prev => {
-      if (!prev) return { [key]: data };
-      if (prev[key]) {
-        // If key exists, maybe append a timestamp
-        const newKey = `${key}_${Date.now()}`;
-        return { [newKey]: data, ...prev };
+      if (!prev) return { [parentKey]: { [sectionTitle]: data } };
+
+      let currentFullData = { ...prev }; // Copy full data
+
+      // 1. Check if the parent key is a TAB name that should act as an object container
+      const isTabContainer = ['about', 'courses', 'seat_matrix', 'ranking'].includes(parentKey);
+
+      if (isTabContainer) {
+          // Ensure the parent key exists and is an object, or initialize it as an empty object
+          if (typeof currentFullData[parentKey] !== 'object' || currentFullData[parentKey] === null || Array.isArray(currentFullData[parentKey])) {
+              currentFullData[parentKey] = {};
+          }
+          
+          // New data should be prepended as a sub-key within the parent object (tab container)
+          const existingChildren = currentFullData[parentKey] || {};
+          const newParentValue = { 
+              [sectionTitle]: data, 
+              ...existingChildren
+          };
+
+          return {
+              ...currentFullData,
+              [parentKey]: newParentValue
+          };
       }
-      // Prepend new data
-      return { [key]: data, ...prev };
+      
+      // Fallback: Create a new scoped top-level key, and prepend it.
+      const newKey = `${parentKey}_${sectionTitle}`;
+      
+      if (currentFullData[newKey]) {
+        // If key exists, append a timestamp and prepend it.
+        const timestampedKey = `${newKey}_${Date.now()}`;
+        return { [timestampedKey]: data, ...currentFullData };
+      }
+      
+      // Prepend new data to show first in the list
+      return { [newKey]: data, ...currentFullData };
     });
   };
 
@@ -1496,61 +1859,103 @@ export default function CollegeEditPage({ params }: CollegeEditPageProps) {
               </TabsList>
             </div>
 
-            {['about', 'courses', 'seat_matrix', 'ranking', 'nirf'].map(tab => (
-              <TabsContent key={tab} value={tab} className="space-y-4 mt-4 w-full max-w-full">
+            {['about', 'courses', 'seat_matrix', 'ranking', 'nirf'].map(tab => {
+              
+              const relevantKeys = Object.keys(fullData).filter(key => 
+                key === tab || key.startsWith(`${tab}_`)
+              );
 
-                {/* --- NEW CSV UPLOADER AT TOP --- */}
-                {/* We pass the College Name as the default filter to make it easy for the admin */}
-                <CsvSectionUploader onUpload={handleCsvSectionAdd} defaultFilter={basicData.Name} tabName={tab} />
+              // Determines if the primary key for the tab (e.g., 'about', 'ranking') is a container object
+              const isTabContainer = ['about', 'courses', 'seat_matrix', 'ranking'].includes(tab) && 
+                                     fullData[tab] && 
+                                     typeof fullData[tab] === 'object' && 
+                                     !Array.isArray(fullData[tab]); 
+              
+              const isNirfTab = tab === 'nirf';
+              const nirfData = fullData['nirf'];
 
-                {Object.entries(fullData).map(([key, value]) => {
-                  let show = false;
-                  // Standard keys filtering logic
-                  if (tab === 'about' && (key === 'about' || key === 'banner_section')) show = true;
-                  if (tab === 'courses' && (key === 'courses' || key === 'admission')) show = true;
-                  if (tab === 'seat_matrix' && key === 'seat_matrix') show = true;
-                  if (tab === 'ranking' && (key === 'ranking')) show = true; // Removed 'nirf' here
-                  if (tab === 'nirf' && key === 'nirf') show = true;
+              let sectionsToRender: { key: string; value: any; isNested: boolean; parentKey?: string; }[] = [];
 
-                  // Custom/New sections logic:
-                  // Only show if it starts with current tab name prefix
-                  if (key.startsWith(`${tab}_`)) show = true;
+              if (isTabContainer) {
+                // Case 1: The primary tab key is an object container. Break out its children.
+                Object.entries(fullData[tab]).forEach(([nestedKey, nestedValue]) => {
+                  sectionsToRender.push({
+                    key: `${tab}/${nestedKey}`, // Composite key
+                    value: nestedValue,
+                    isNested: true,
+                    parentKey: tab,
+                  });
+                });
+              }
 
-                  if (!show) return null;
+              // Case 2: Other relevant keys (custom sections)
+              relevantKeys.forEach(key => {
+                // Skip the primary container key if we just broke it out (Case 1)
+                if (key === tab && isTabContainer) return; 
+                
+                // Skip the primary NIRF key if it's the NIRF tab (handled separately below)
+                if (key === 'nirf' && isNirfTab) return;
 
-                  // Display name clean up (remove prefix if it matches current tab)
-                  const displayTitle = key.startsWith(`${tab}_`) ? key.replace(`${tab}_`, '') : key;
+                sectionsToRender.push({
+                  key: key,
+                  value: fullData[key],
+                  isNested: false,
+                });
+              });
 
-                  return (
+
+              return (
+                <TabsContent key={tab} value={tab} className="space-y-4 mt-4 w-full max-w-full">
+
+                  {/* --- CSV UPLOADER --- */}
+                  <CsvSectionUploader onUpload={handleCsvSectionAdd} defaultFilter={basicData.Name} tabName={tab} />
+
+                  {/* --- RENDER NIRF SECTION (Special Case) --- */}
+                  {isNirfTab && nirfData && (
                     <EditableSection
-                      key={key}
-                      title={displayTitle}
-                      isEditing={editingSection === key}
-                      onEdit={() => startEditing(key, value)}
-                      onSave={() => saveEditing(key)}
+                      key={'nirf'}
+                      title={'NIRF'}
+                      isEditing={editingSection === 'nirf'}
+                      onEdit={() => startEditing('nirf', nirfData)}
+                      onSave={() => saveEditing('nirf')}
                       onCancel={() => setEditingSection(null)}
-                      onDelete={() => handleDeleteSection(key)}
-                      onRename={(newTitle: string) => handleRenameSection(key, `${tab}_${newTitle}`)} // Pass rename handler with prefix
-                      editComponent={key === 'nirf' ? (
-                        <NirfEditor data={tempData} onChange={setTempData} />
-                      ) : (
-                        <RichEditor data={tempData} onChange={setTempData} />
-                      )}
+                      onDelete={() => handleDeleteSection('nirf')}
+                      onRename={(newTitle: string) => handleRenameSection('nirf', newTitle)} 
+                      editComponent={<NirfEditor data={tempData} onChange={setTempData} />}
                     >
-                      {/* INTEGRATION POINT: Use NirfSection if key is 'nirf' */}
-                      {key === 'nirf' ? (
-                        <NirfSection nirfData={value} />
-                      ) : (
-                        <RenderDisplay data={value} highlight={searchTerm} />
-                      )}
+                      <NirfSection nirfData={nirfData} />
                     </EditableSection>
-                  );
-                })}
+                  )}
 
-                <Separator className="my-4" />
-                <SectionCreator onAdd={handleAddSection} tabName={tab} />
-              </TabsContent>
-            ))}
+
+                  {/* --- RENDER ALL OTHER SECTIONS (Including Broken-Out Sub-Keys) --- */}
+                  {sectionsToRender.map(section => {
+                    const displayTitle = section.isNested ? section.key.split('/')[1] : 
+                                         section.key.startsWith(`${tab}_`) ? section.key.replace(`${tab}_`, '') : 
+                                         section.key;
+                    
+                    return (
+                      <EditableSection
+                        key={section.key}
+                        title={displayTitle}
+                        isEditing={editingSection === section.key}
+                        onEdit={() => startEditing(section.key, section.value)}
+                        onSave={() => saveEditing(section.key)}
+                        onCancel={() => setEditingSection(null)}
+                        onDelete={() => handleDeleteSection(section.key)}
+                        onRename={(newTitle: string) => handleRenameSection(section.key, newTitle)} 
+                        editComponent={<RichEditor data={tempData} onChange={setTempData} />}
+                      >
+                        <RenderDisplay data={section.value} highlight={searchTerm} />
+                      </EditableSection>
+                    );
+                  })}
+
+                  <Separator className="my-4" />
+                  <SectionCreator onAdd={handleAddSection} tabName={tab} />
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </div>
       </div>
