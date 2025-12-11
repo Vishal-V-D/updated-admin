@@ -1,39 +1,46 @@
-import type { NextConfig } from 'next';
-import { withSentryConfig } from '@sentry/nextjs';
+import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
-// Base Next.js config
 const baseConfig: NextConfig = {
+  // Required for Next 16 (because Turbopack is default)
+  turbopack: {},
+
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'api.slingacademy.com',
-        port: ''
-      }
-    ]
+        protocol: "https",
+        hostname: "api.slingacademy.com",
+        port: "",
+      },
+    ],
   },
-  transpilePackages: ['geist'],
 
-  // ⚡ ESLint: ignore warnings/errors during builds (Netlify-friendly)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  transpilePackages: ["geist"],
+
+  // ❌ Remove ESLint config — not supported in Next 16
+  // eslint: { ignoreDuringBuilds: true },  ← REMOVE THIS COMPLETELY
 };
 
+// Enable Sentry safely (works with Turbopack)
 let configWithPlugins = baseConfig;
 
-// Conditionally enable Sentry
 if (!process.env.NEXT_PUBLIC_SENTRY_DISABLED) {
-  configWithPlugins = withSentryConfig(configWithPlugins, {
-    org: process.env.NEXT_PUBLIC_SENTRY_ORG,
-    project: process.env.NEXT_PUBLIC_SENTRY_PROJECT,
-    silent: !process.env.CI,
-    widenClientFileUpload: true,
-    reactComponentAnnotation: { enabled: true },
-    tunnelRoute: '/monitoring',
-    disableLogger: true,
-    telemetry: false,
-  });
+  configWithPlugins = withSentryConfig(
+    configWithPlugins,
+    {
+      org: process.env.NEXT_PUBLIC_SENTRY_ORG,
+      project: process.env.NEXT_PUBLIC_SENTRY_PROJECT,
+      silent: true,
+      tunnelRoute: "/monitoring",
+      disableLogger: true,
+      telemetry: false,
+    },
+    {
+      // Required to avoid Webpack-related issues in Next 16
+      disableWebpackPlugin: true,
+      disableLogger: true,
+    }
+  );
 }
 
 export default configWithPlugins;
