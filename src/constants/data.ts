@@ -29,6 +29,14 @@ export const navItems: NavItem[] = [
     ]
   },
   {
+    title: 'Analysis',
+    url: '/admin/analysis',
+    icon: 'kanban',
+    isActive: false,
+    shortcut: ['a', 'n'],
+    items: []
+  },
+  {
     title: 'Users',
     url: '/admin/users/all',
     icon: 'user',
@@ -41,7 +49,7 @@ export const navItems: NavItem[] = [
         icon: 'user',
         shortcut: ['a', 'u']
       },
-     
+
     ]
   },
   {
@@ -63,7 +71,7 @@ export const navItems: NavItem[] = [
         icon: 'kanban',
         shortcut: ['j', 'd']
       },
-     
+
     ]
   },
   {
@@ -79,7 +87,7 @@ export const navItems: NavItem[] = [
         icon: 'kanban',
         shortcut: ['l', 'e']
       },
-       {
+      {
         title: 'Add Exam ',
         url: '/admin/exams/add',
         icon: 'add',
@@ -107,24 +115,24 @@ export const navItems: NavItem[] = [
         shortcut: ['e', 'p']
       }
     ]
-  },{
-  title: 'Updates',
-  url: '/updates',
-  icon: 'messages',
-  isActive: false,
-  shortcut: ['u', 'p'],
-  items: [
-    {
-      title: 'Post Updates',
-      url: '/updates',
-      icon: 'post',
-      shortcut: ['g', 'u']
-    }
-    
-   
-  ]
-}
-,
+  }, {
+    title: 'Updates',
+    url: '/updates',
+    icon: 'messages',
+    isActive: false,
+    shortcut: ['u', 'p'],
+    items: [
+      {
+        title: 'Post Updates',
+        url: '/updates',
+        icon: 'post',
+        shortcut: ['g', 'u']
+      }
+
+
+    ]
+  }
+  ,
   {
     title: 'Logs',
     url: '/logs',
@@ -159,7 +167,7 @@ export const navItems: NavItem[] = [
     isActive: false,
     shortcut: ['s', 't'],
     items: [
-       {
+      {
         title: 'General',
         url: '/settings',
         icon: 'userCheck',
