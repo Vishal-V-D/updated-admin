@@ -1,4 +1,4 @@
-# 📚 JSAA - Joint Seat Allocation Authority Admin Dashboard
+# 📚 JoSAA - Joint Seat Allocation Authority Admin Dashboard
 
 > **Complete Documentation for the JSAA Admin Panel - Your Ultimate College Counseling Management System**
 
