@@ -37,19 +37,24 @@ export const navItems: NavItem[] = [
     items: []
   },
   {
-    title: 'Users',
-    url: '/admin/users/all',
-    icon: 'user',
-    isActive: false,
-    shortcut: ['u', 's'],
+    title: 'User Management',
+    url: '/dashboard/users',
+    icon: 'userCheck',
+    isActive: true,
+    shortcut: ['u', 'm'],
     items: [
       {
         title: 'All Users',
-        url: '/admin/users/all',
+        url: '/dashboard/users',
         icon: 'user',
-        shortcut: ['a', 'u']
+        shortcut: ['u', 'a']
       },
-
+      {
+        title: 'Invite User',
+        url: '/dashboard/users/invite',
+        icon: 'add',
+        shortcut: ['u', 'i']
+      }
     ]
   },
   {
@@ -70,8 +75,7 @@ export const navItems: NavItem[] = [
         url: '/admin/colleges/add',
         icon: 'kanban',
         shortcut: ['j', 'd']
-      },
-
+      }
     ]
   },
   {
@@ -115,7 +119,8 @@ export const navItems: NavItem[] = [
         shortcut: ['e', 'p']
       }
     ]
-  }, {
+  },
+  {
     title: 'Updates',
     url: '/updates',
     icon: 'messages',
@@ -128,11 +133,8 @@ export const navItems: NavItem[] = [
         icon: 'post',
         shortcut: ['g', 'u']
       }
-
-
     ]
-  }
-  ,
+  },
   {
     title: 'Logs',
     url: '/logs',
